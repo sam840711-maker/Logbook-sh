@@ -1,5 +1,5 @@
 /* SH Pilot Logbook service worker */
-const CACHE = 'logbook-v0-3n';
+const CACHE = 'logbook-v0-3o';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './lib/jspdf.umd.min.js', './lib/logbook-pdf.js', './lib/airports.js'];
 
 self.addEventListener('install', (e) => {

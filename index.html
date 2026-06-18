@@ -225,7 +225,9 @@
   .bar .bt{height:8px; background:var(--line-soft); border-radius:99px; overflow:hidden}
   .bar .bf{height:100%; background:var(--cyan); border-radius:99px; transition:width .3s}
   .bar .bf.amber{background:var(--amber)} .bar .bf.violet{background:#b48ee8} .bar .bf.green{background:var(--green)}
-  .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink)}
+  .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); white-space:nowrap}
+  #dashCurr .bar{grid-template-columns:92px 1fr auto}
+  #dashCurr .bar .bv{padding-left:8px}
   @media (prefers-reduced-motion:reduce){.bar .bf{transition:none}}
   .fcard{display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:center; background:var(--panel);
     border:1px solid var(--line-soft); border-left:3px solid var(--cyan-dim); border-radius:10px; padding:10px 12px; margin-bottom:7px; cursor:pointer}
@@ -655,7 +657,7 @@
     var cVals=cKeys.map(function(k){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0; return sc==='sim'?s:sc==='ac'?a:(a+s); });
     var crmax=Math.max.apply(null,cVals.concat([1]));
     $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0;
-      var disp = sc==='all' ? (a+' / '+s) : undefined;
+      var disp = sc==='all' ? ((a+s)+' ('+a+'/'+s+')') : undefined;
       return bar(k[0],cVals[i],crmax,'green',true,disp); }).join('');
     // cluster landings reflect scope (All = aircraft + sim)
     $('#dashLdg').textContent = sc==='sim'? ccS.ldg : sc==='ac'? ccA.ldg : (ccA.ldg+ccS.ldg);
@@ -681,7 +683,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3n · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3o · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
