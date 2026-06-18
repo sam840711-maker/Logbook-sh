@@ -999,6 +999,7 @@
   function renderMore(){
     renderAcList();
     renderDevList();
+    refreshSnapCount();
 
     var cl=$('#credList');
     cl.innerHTML = S.credentials.length ? S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');}).map(function(c){
@@ -1282,7 +1283,7 @@
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
     var srr=e.target.closest('[data-snaprestore]'); if(srr){ restoreSnapshot(srr.getAttribute('data-snaprestore')); return; }
-    var sdd=e.target.closest('[data-snapdel]'); if(sdd){ var sid=sdd.getAttribute('data-snapdel'); if(confirm('Delete this restore point?')) del('snapshots',sid).then(function(){ if(snapSectionOpen) renderSnapList(); }); return; }
+    var sdd=e.target.closest('[data-snapdel]'); if(sdd){ var sid=sdd.getAttribute('data-snapdel'); if(confirm('Delete this restore point?')) del('snapshots',sid).then(function(){ refreshSnapCount(); if(snapSectionOpen) renderSnapList(); }); return; }
     var cr=e.target.closest('[data-cid]'); if(cr){ var c=S.credentials.filter(function(x){return x.id===cr.getAttribute('data-cid');})[0]; if(c) openCred(c); return; }
     var gb=e.target.closest('[data-go]'); if(gb){ go(gb.getAttribute('data-go')); }
   });
@@ -1322,13 +1323,15 @@
 
   /* ---------- restore points (auto snapshots) ---------- */
   var SNAP_MAX=10, snapSectionOpen=false;
+  function countSnaps(){ return new Promise(function(res){ try{ var r=tx('snapshots','readonly').count(); r.onsuccess=function(){res(r.result||0);}; r.onerror=function(){res(0);}; }catch(e){ res(0); } }); }
+  function refreshSnapCount(){ countSnaps().then(function(n){ if($('#snapCount')) $('#snapCount').textContent='('+n+')'; }); }
   function snapData(){ var o={}; DATA_STORES.forEach(function(st){ o[st]=(S[st]||[]).map(function(x){ var c={}; for(var k in x) c[k]=x[k]; return c; }); }); return o; }
   function dataSig(){ var mc=0; (S.flights||[]).forEach(function(f){ if((f._c||0)>mc) mc=f._c; }); (S.sim||[]).forEach(function(s){ if((s._c||0)>mc) mc=s._c; });
     return DATA_STORES.map(function(st){ return (S[st]||[]).length; }).join('/')+':'+mc; }
   function snapCounts(){ return {flights:(S.flights||[]).length, sim:(S.sim||[]).length, aircraft:(S.aircraft||[]).length}; }
   function pruneSnaps(){ return getAll('snapshots').then(function(list){ list.sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');}); return Promise.all(list.slice(SNAP_MAX).map(function(s){return del('snapshots',s.id);})); }); }
   function saveSnapshot(reason){ var rec={id:uid(),ts:new Date().toISOString(),reason:reason||'manual',sig:dataSig(),counts:snapCounts(),data:snapData()};
-    return put('snapshots',rec).then(pruneSnaps).then(function(){ if(snapSectionOpen) renderSnapList(); }); }
+    return put('snapshots',rec).then(pruneSnaps).then(function(){ refreshSnapCount(); if(snapSectionOpen) renderSnapList(); }); }
   function maybeAutoSnapshot(){ if(!(S.flights.length||S.aircraft.length||S.sim.length)) return Promise.resolve();
     return getAll('snapshots').then(function(list){ list.sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
       if(list[0] && list[0].sig===dataSig()) return; return saveSnapshot('auto'); }).catch(function(){}); }
@@ -1516,7 +1519,7 @@
   });
 
   /* ---------- boot ---------- */
-  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); maybeAutoSnapshot(); }); }
+  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); maybeAutoSnapshot().then(refreshSnapCount); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
