@@ -1,0 +1,15 @@
+{
+  "name": "SH Pilot Logbook",
+  "short_name": "Logbook",
+  "description": "조종사 비행 로그북 · 오프라인",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1418",
+  "theme_color": "#0d1418",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
