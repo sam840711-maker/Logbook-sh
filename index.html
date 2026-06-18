@@ -611,6 +611,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="version.js"></script>
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
@@ -788,7 +789,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4r · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · '+(typeof APP_VERSION!=='undefined'?APP_VERSION:'dev')+' · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -1356,7 +1357,7 @@
     $$('[data-pdf]').forEach(function(b){ b.addEventListener('click',function(){
       if(!window.LogbookPDF || !window.jspdf){ toast('PDF module failed to load'); return; }
       var fmt=b.getAttribute('data-pdf');
-      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:S.flights,sim:S.sim,profile:curProfile(),format:fmt});
+      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:S.flights,sim:S.sim,profile:curProfile(),format:fmt,version:(typeof APP_VERSION!=='undefined'?APP_VERSION:'')});
         doc.save('logbook_'+fmt+'_'+today()+'.pdf'); toast(fmt+' PDF created'); }
       catch(e){ console.error(e); toast('PDF creation failed'); }
     }); });
@@ -1477,7 +1478,7 @@
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
-  if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+  if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){ try{ reg.update(); }catch(e){} }).catch(function(){}); }); }
 })();
 </script>
 </body>
