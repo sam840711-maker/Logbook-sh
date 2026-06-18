@@ -606,7 +606,7 @@
 
     $('#dashRecent').innerHTML = S.flights.length ? S.flights.slice(0,5).map(cardFlight).join('')
       : '<div class="empty"><b>No flights yet</b>Use the + button to add your first flight.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3 · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3b · offline';
   }
   function recRow(s,name,meta,count,unit,topOverride,botOverride){
     var val = topOverride!=null ? ('<b>'+esc(topOverride)+'</b>'+(botOverride?esc(botOverride):''))

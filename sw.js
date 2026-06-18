@@ -1,5 +1,5 @@
 /* SH Pilot Logbook service worker */
-const CACHE = 'logbook-v0-3b';
+const CACHE = 'logbook-v0-3c';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './lib/jspdf.umd.min.js', './lib/logbook-pdf.js', './lib/airports.js'];
 
 self.addEventListener('install', (e) => {
@@ -13,15 +13,32 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+function isHTML(req) {
+  return req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') >= 0 || /\.html(\?|$)/.test(req.url);
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // cache-first for app shell, network fallback
+
+  // HTML (the app itself): network-first so updates show immediately; cache only as offline fallback.
+  if (isHTML(req)) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Static libs/icons: cache-first (they are versioned by CACHE name).
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }))
   );
 });
