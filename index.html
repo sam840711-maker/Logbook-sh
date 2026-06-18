@@ -115,6 +115,14 @@
   .section-head{display:flex; align-items:center; margin:18px 2px 10px}
   .section-head h2{font-size:13px; letter-spacing:.04em; margin:0; color:var(--ink); font-weight:600}
   .section-head .add{margin-left:auto; font-size:13px; color:var(--cyan); padding:4px 8px; border:1px solid var(--cyan-dim); border-radius:8px}
+  .acsec{cursor:pointer; -webkit-user-select:none; user-select:none}
+  .cnt{color:var(--ink-faint); font-weight:400; font-size:12px}
+  .chev{margin-left:8px; color:var(--ink-faint); font-size:11px; transition:transform .15s; display:inline-block}
+  .chev.down{transform:rotate(90deg)}
+  .collapse{display:none}
+  .collapse.open{display:block}
+  .acgrp{font-size:11px; letter-spacing:.06em; color:var(--ink-faint); text-transform:uppercase; margin:12px 2px 6px; display:flex; align-items:center; gap:6px}
+  .acgrp span{color:var(--cyan); font-family:var(--mono)}
 
   .empty{text-align:center; color:var(--ink-faint); font-size:13px; padding:30px 16px; border:1px dashed var(--line);
     border-radius:var(--r); background:var(--panel-2)}
@@ -285,8 +293,11 @@
     <!-- MORE -->
     <section class="view" id="view-more">
       <p class="eyebrow">Manage</p>
-      <div class="section-head"><h2>Aircraft</h2><button class="add" id="addAc">+ Aircraft</button></div>
-      <div id="acList"></div>
+      <div class="section-head acsec" id="acHead"><h2>Aircraft <span class="cnt" id="acCount">(0)</span></h2><span class="chev" id="acChev">&#9656;</span><button class="add" id="addAc">+ Aircraft</button></div>
+      <div id="acWrap" class="collapse">
+        <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
+        <div id="acList"></div>
+      </div>
       <div class="section-head"><h2>Licences · Medical · Recency</h2><button class="add" id="addCred">+ Item</button></div>
       <div id="credList"></div>
       <div class="section-head"><h2>PDF logbook export</h2></div>
@@ -634,12 +645,25 @@
   }
 
   /* ---------- MORE: aircraft + credentials ---------- */
-  function renderMore(){
+  function renderAcList(){
+    $('#acCount').textContent='('+S.aircraft.length+')';
     var ac=$('#acList');
-    ac.innerHTML = S.aircraft.length ? S.aircraft.map(function(a){
-      return '<div class="row" data-aid="'+a.id+'"><div class="main"><div class="t mono">'+esc(a.reg||'')+'</div>'+
-        '<div class="s">'+esc(a.type||'')+' · '+esc(a.cls||'')+' · '+esc(a.engine||'')+(a.multi?' · MP':'')+'</div></div></div>';
-    }).join('') : '<div class="empty"><b>No aircraft</b>Adding an aircraft auto-fills its type when logging a flight.</div>';
+    if(!S.aircraft.length){ ac.innerHTML='<div class="empty"><b>No aircraft</b>Adding an aircraft auto-fills its type when logging a flight.</div>'; return; }
+    var q=($('#acSearch')?$('#acSearch').value:'').trim().toUpperCase();
+    var list=S.aircraft.filter(function(a){ if(!q) return true; return (a.reg||'').toUpperCase().indexOf(q)>=0 || (a.type||'').toUpperCase().indexOf(q)>=0; });
+    if(!list.length){ ac.innerHTML='<div class="empty" style="margin-top:6px"><b>No match</b>Try a different registration or type.</div>'; return; }
+    var groups={}; list.forEach(function(a){ var k=a.type||'(no type)'; (groups[k]=groups[k]||[]).push(a); });
+    var keys=Object.keys(groups).sort(function(x,y){ return groups[y].length-groups[x].length || x.localeCompare(y); });
+    ac.innerHTML=keys.map(function(k){
+      var items=groups[k].slice().sort(function(a,b){return (a.reg||'').localeCompare(b.reg||'');});
+      return '<div class="acgrp">'+esc(k)+' <span>'+items.length+'</span></div>'+items.map(function(a){
+        return '<div class="row" data-aid="'+a.id+'"><div class="main"><div class="t mono">'+esc(a.reg||'')+'</div>'+
+          '<div class="s">'+esc(a.cls||'')+(a.multi?' \u00b7 MP':'')+'</div></div></div>';
+      }).join('');
+    }).join('');
+  }
+  function renderMore(){
+    renderAcList();
 
     var cl=$('#credList');
     cl.innerHTML = S.credentials.length ? S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');}).map(function(c){
@@ -731,7 +755,10 @@
   function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'Edit aircraft':'Add aircraft'; $('#acDel').style.display=a?'block':'none';
     $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'Multi-engine Jet (ME Jet)';
     $('#a_engine').value=a?a.engine:'Jet'; $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
-  $('#addAc').addEventListener('click',function(){ openAc(null); });
+  $('#addAc').addEventListener('click',function(e){ e.stopPropagation(); openAc(null); });
+  function toggleAc(open){ var w=$('#acWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#acChev').classList.toggle('down',willOpen); }
+  $('#acHead').addEventListener('click',function(e){ if(e.target.closest('#addAc')) return; toggleAc(); });
+  $('#acSearch').addEventListener('input',function(){ if(this.value.trim()) toggleAc(true); renderAcList(); });
   $('#acSave').addEventListener('click',function(){
     var reg=$('#a_reg').value.trim().toUpperCase(); if(!reg){ toast('Enter a registration'); return; }
     var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:$('#a_class').value,engine:$('#a_engine').value,multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
