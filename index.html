@@ -469,7 +469,7 @@
     <div class="fgroup"><label>Approaches (type · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="e.g. ILS CAT3B 34L; RNP 30R"></div>
 
     <div class="fdiv"></div>
-    <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc"><span>Cross-country</span></label>
+    <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc" checked><span>Cross-country</span></label>
     <div class="fgroup"><label>Remarks</label><textarea class="fld" id="f_rem" placeholder="Training notes, delays, abnormals…"></textarea></div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="fSave">Save</button></div>
@@ -729,7 +729,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3x · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3y · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
