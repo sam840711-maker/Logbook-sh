@@ -254,6 +254,21 @@
         <button data-scope="ac">Aircraft</button>
         <button data-scope="sim">Simulator</button>
       </div>
+      <select class="fld" id="dashPeriod" style="margin-bottom:10px">
+        <option value="all">All time</option>
+        <option value="cmonth">Current month</option>
+        <option value="lmonth">Last month</option>
+        <option value="cyear">Current year</option>
+        <option value="lyear">Last year</option>
+        <option value="d90">Last 90 days</option>
+        <option value="m12">Last 12 months</option>
+        <option value="range">Specific range...</option>
+      </select>
+      <div class="frow c2" id="dashRangeRow" style="display:none; margin-bottom:10px">
+        <div class="fgroup"><label>From</label><input type="date" class="fld" id="dashFrom"></div>
+        <div class="fgroup"><label>To</label><input type="date" class="fld" id="dashTo"></div>
+      </div>
+      <div class="fhint" id="dashRangeLbl" style="margin:-2px 2px 8px"></div>
       <div class="gt" id="dashGrand"></div>
       <div class="cluster" style="margin-top:8px">
         <div class="label" id="dashClabel">Total · BLOCK</div>
@@ -553,12 +568,34 @@
 
   /* ---------- DASHBOARD ---------- */
   var dashScope='all';
+  var dashPeriod='all', dashFrom='', dashTo='';
+  function pad2(n){ return (n<10?'0':'')+n; }
+  function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function monthRange(y,m){ return {from:dstr(new Date(y,m,1)), to:dstr(new Date(y,m+1,0))}; }
+  function periodRange(){
+    var now=new Date(), y=now.getFullYear(), m=now.getMonth(), d;
+    switch(dashPeriod){
+      case 'cmonth': return monthRange(y,m);
+      case 'lmonth': return monthRange(m===0?y-1:y, m===0?11:m-1);
+      case 'cyear': return {from:y+'-01-01', to:y+'-12-31'};
+      case 'lyear': return {from:(y-1)+'-01-01', to:(y-1)+'-12-31'};
+      case 'd90': d=new Date(now); d.setDate(d.getDate()-89); return {from:dstr(d), to:dstr(now)};
+      case 'm12': d=new Date(now); d.setFullYear(d.getFullYear()-1); d.setDate(d.getDate()+1); return {from:dstr(d), to:dstr(now)};
+      case 'range': return {from:dashFrom||null, to:dashTo||null};
+      default: return {from:null, to:null};
+    }
+  }
   function bar(label,val,max,color,isCount){ var pct=max>0?Math.round((val/max)*100):0; if(pct>100)pct=100;
     var disp=isCount?String(val||0):fmtHM(val);
     return '<div class="bar"><div class="bl">'+esc(label)+'</div><div class="bt"><div class="bf '+(color||'')+'" style="width:'+pct+'%"></div></div><div class="bv">'+disp+'</div></div>'; }
   function grandCell(cls,k,n,v){ return '<div class="cell '+cls+'"><div class="k">'+esc(k)+'</div>'+(n?'<div class="n">'+esc(n)+'</div>':'')+'<div class="v">'+esc(v)+'</div></div>'; }
   function renderDash(){
-    var fl=S.flights, sm=S.sim;
+    var r=periodRange();
+    var inR=function(d){ if(!d) return false; if(r.from && d<r.from) return false; if(r.to && d>r.to) return false; return true; };
+    var hasR=!!(r.from||r.to);
+    var fl=hasR?S.flights.filter(function(f){return inR(f.date);}):S.flights;
+    var sm=hasR?S.sim.filter(function(s){return inR(s.date);}):S.sim;
+    $('#dashRangeLbl').textContent = hasR ? ('Showing  '+(r.from||'\u2026')+'  \u2013  '+(r.to||'\u2026')) : 'All time \u00b7 entire logbook';
     var t=totals(fl);
     var simMin=sm.reduce(function(a,s){return a+(s.total||0);},0);
     $('#dashGrand').innerHTML =
@@ -571,7 +608,8 @@
     $('#dashFlights').textContent=isSim?sm.length:t.n;
     $('#dashLdg').textContent=t.ldg;
     $('#dashAvg').textContent=fmtHM(isSim?(sm.length?Math.round(simMin/sm.length):0):(t.n?Math.round(t.total/t.n):0));
-    $('#hdrTail').textContent=fmtHM(t.total+simMin)+' · '+(fl.length+sm.length)+'R';
+    var allMin=totals(S.flights).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
+    $('#hdrTail').textContent=fmtHM(allMin)+' · '+(S.flights.length+S.sim.length)+'R';
 
     var fmax=Math.max(t.pic,t.picus,t.sic,t.dual,t.relief,1);
     $('#dashFunc').innerHTML=[['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
@@ -606,7 +644,7 @@
 
     $('#dashRecent').innerHTML = S.flights.length ? S.flights.slice(0,5).map(cardFlight).join('')
       : '<div class="empty"><b>No flights yet</b>Use the + button to add your first flight.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3b · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3d · offline';
   }
   function recRow(s,name,meta,count,unit,topOverride,botOverride){
     var val = topOverride!=null ? ('<b>'+esc(topOverride)+'</b>'+(botOverride?esc(botOverride):''))
@@ -804,6 +842,9 @@
     var gb=e.target.closest('[data-go]'); if(gb){ go(gb.getAttribute('data-go')); }
   });
   $$('nav.tabs button[data-view]').forEach(function(b){ b.addEventListener('click',function(){ go(b.getAttribute('data-view')); }); });
+  $('#dashPeriod').addEventListener('change',function(){ dashPeriod=this.value; $('#dashRangeRow').style.display=(dashPeriod==='range')?'':'none'; renderDash(); });
+  $('#dashFrom').addEventListener('change',function(){ dashFrom=this.value; renderDash(); });
+  $('#dashTo').addEventListener('change',function(){ dashTo=this.value; renderDash(); });
 
   /* ---------- backup / restore / csv ---------- */
   function download(name,text,type){ var blob=new Blob([text],{type:type||'application/json'}); var u=URL.createObjectURL(blob);
@@ -869,9 +910,9 @@
     var get=function(r,n){ var i=idx[n]; return i==null?'':(r[i]==null?'':String(r[i]).trim()); };
     var mins=function(r,n){ var v=get(r,n); if(!v) return 0; var k=parseInt(v,10); return isNaN(k)?0:k; };
     var TR=function(r,n){ return get(r,n).toUpperCase()==='TRUE'; };
-    var existing={}; S.flights.forEach(function(f){ existing[fsig(f)]=1; });
+    var existing={}; S.flights.forEach(function(f){ existing[fsig(f)]=f; });
     var acByRegMap={}; S.aircraft.forEach(function(a){ acByRegMap[(a.reg||'').toUpperCase()]=a; });
-    var flights=[], sims=[], newAc=[], skipped=0, c0=Date.now();
+    var flights=[], sims=[], newAc=[], updates=[], skipped=0, c0=Date.now();
     p.rows.forEach(function(r,n){
       if(!get(r,'PILOTLOG_DATE')) return;
       var date=get(r,'PILOTLOG_DATE');
@@ -903,9 +944,11 @@
         appr:apTok.filter(function(x){return x!=='AL';}).join('; '),
         task:(pf==='TRUE'?'PF':(pf==='FALSE'?'PM':'')),
         xc:mins(r,'TIME_XC')>0, rule:'IFR', rem:get(r,'REMARKS') };
-      var sig=fsig(f); if(existing[sig]){ skipped++; return; } flights.push(f);
+      var sig=fsig(f); var ex=existing[sig];
+      if(ex){ if(ex.rem && ex.rem.indexOf('\uFFFD')>=0 && f.rem && f.rem!==ex.rem){ var u={}; for(var kk in ex) u[kk]=ex[kk]; u.rem=f.rem; updates.push(u); } skipped++; return; }
+      flights.push(f);
     });
-    return {flights:flights,sims:sims,newAc:newAc,skipped:skipped};
+    return {flights:flights,sims:sims,newAc:newAc,updates:updates,skipped:skipped};
   }
   function bulkWrite(items){ return new Promise(function(res,rej){
     if(!items.length) return res();
@@ -914,25 +957,39 @@
     t.oncomplete=function(){res();}; t.onerror=function(){rej(t.error);}; t.onabort=function(){rej(t.error);};
     items.forEach(function(it){ t.objectStore(it.store).put(it.obj); });
   }); }
+  function decodeCsv(buf){
+    var text;
+    try{ text=new TextDecoder('utf-8').decode(buf); }catch(e){ text=null; }
+    if(text==null || text.indexOf('\uFFFD')>=0){
+      try{ var k=new TextDecoder('euc-kr').decode(buf); if(k && k.indexOf('\uFFFD')<0) return k; if(text==null) return k; }catch(e2){}
+    }
+    return text;
+  }
   $('#impPilotlog').addEventListener('change',function(e){ var file=e.target.files[0]; if(!file) return;
     var rd=new FileReader(); rd.onload=function(){
-      var res; try{ res=importPilotlog(String(rd.result)); }catch(err){ console.error(err); toast('Import failed'); return; }
+      var text; try{ text=decodeCsv(rd.result); }catch(e0){ text=null; }
+      var res; try{ res=importPilotlog(String(text||'')); }catch(err){ console.error(err); toast('Import failed'); return; }
       if(res.error){ toast(res.error); return; }
-      if(!(res.flights.length+res.sims.length)){ toast('Nothing new ('+res.skipped+' duplicates)'); return; }
-      if(!confirm('Import '+res.flights.length+' flights, '+res.sims.length+' sim sessions, '+res.newAc.length+' aircraft?\n('+res.skipped+' duplicates skipped)')) return;
+      var nUpd=(res.updates||[]).length;
+      if(!(res.flights.length+res.sims.length+nUpd)){ toast('Nothing new ('+res.skipped+' duplicates)'); return; }
+      var msg='Import '+res.flights.length+' flights, '+res.sims.length+' sim sessions, '+res.newAc.length+' aircraft?';
+      if(nUpd) msg+='\nAlso repair '+nUpd+' garbled remarks.';
+      msg+='\n('+res.skipped+' duplicates skipped)';
+      if(!confirm(msg)) return;
       var items=[];
       res.newAc.forEach(function(a){ items.push({store:'aircraft',obj:a}); });
       res.flights.forEach(function(f){ items.push({store:'flights',obj:f}); });
+      (res.updates||[]).forEach(function(f){ items.push({store:'flights',obj:f}); });
       res.sims.forEach(function(s){ items.push({store:'sim',obj:s}); });
-      bulkWrite(items).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' flights · '+res.sims.length+' sim'); })
+      bulkWrite(items).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' · repaired '+nUpd); })
         .catch(function(err){ console.error(err); toast('Import write failed'); });
-    }; rd.readAsText(file); e.target.value='';
+    }; rd.readAsArrayBuffer(file); e.target.value='';
   });
 
   /* ---------- boot ---------- */
   function boot(){ return openDB().then(reload).then(function(){ go('dash'); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
-  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,localClock:localClock,S:S};
+  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S};
 
   if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
 })();
