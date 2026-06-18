@@ -207,6 +207,7 @@
 
   .miscbtns{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px}
   .miscbtns3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:2px}
+  .miscbtns4{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:2px}
   .filebtn{position:relative; overflow:hidden}
   .filebtn input{position:absolute; inset:0; opacity:0; cursor:pointer}
   .appfoot{text-align:center; color:var(--ink-faint); font-size:11px; padding:22px 0 8px; font-family:var(--mono)}
@@ -393,12 +394,13 @@
       </div>
       <button class="btn primary" id="saveSettings" style="width:100%; margin:4px 0 6px">Save settings</button>
       <div class="fhint" id="settingsSaved" style="margin-bottom:6px"></div>
-      <div class="miscbtns3">
+      <div class="miscbtns4">
         <button class="btn ghost sm" data-pdf="EASA">EASA</button>
         <button class="btn ghost sm" data-pdf="FAA">FAA</button>
         <button class="btn ghost sm" data-pdf="GCAA">GCAA</button>
+        <button class="btn ghost sm" data-pdf="JCAB">JCAB</button>
       </div>
-      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. GCAA adds a licence-total reconciliation note.</div>
+      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. GCAA adds a licence-total reconciliation note. JCAB uses the Japan logbook column layout (incl. operational-time IFR and FSTD-session columns).</div>
 
       <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
@@ -760,7 +762,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4e · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4g · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
