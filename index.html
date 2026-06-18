@@ -728,7 +728,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3u · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3v · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -920,10 +920,11 @@
     var off=pick(leg,['off','out']), on=pick(leg,['on','in']);
     var blk=pick(leg,['block','bt','total']), night=pick(leg,['night']);
     var inst=pick(leg,['actual','inst','instrument','instTime']);
+    var rem=pick(leg,['rem','remark','remarks']) || shared.rem || (shared.picName?('C.'+shared.picName):'');
     return { date:shared.date||'', reg:(shared.reg||'').toUpperCase(), picName:shared.picName||'',
       fno:tw2twb(pick(leg,['fno','flightNo','flight'])), dep:(pick(leg,['dep','from'])||'').toUpperCase(), arr:(pick(leg,['arr','to'])||'').toUpperCase(),
       off:off!=null?parseClock(off):null, on:on!=null?parseClock(on):null,
-      total:blk!=null?parseDur(blk):0, night:night!=null?parseDur(night):0, actual:inst!=null?parseDur(inst):0 };
+      total:blk!=null?parseDur(blk):0, night:night!=null?parseDur(night):0, actual:inst!=null?parseDur(inst):0, rem:rem };
   }
   function openReview(){
     if(pasteIdx>=pasteAll.length){ pasteAll=[]; pasteIdx=0; closeM(); go('log'); toast('Import complete'); return; }
