@@ -752,10 +752,11 @@
     // currencies: Aircraft / Simulator separated; All shows "aircraft / sim"
     var ccA=curCounts(fl), ccS=curCounts(sm); var sc=dashScope;
     $('#dashCurrLbl').textContent = sc==='sim'?'Simulator':sc==='ac'?'Aircraft':'Aircraft / Sim';
-    var cKeys=[['TO-DAY','toDay'],['LDG-DAY','ldgDay'],['TO-NIGHT','toNight'],['LDG-NIGHT','ldgNight'],['AUTOLAND','auto']];
-    var cVals=cKeys.map(function(k){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0; return sc==='sim'?s:sc==='ac'?a:(a+s); });
+    var cKeys=[['TO-TOTAL',['toDay','toNight']],['LDG-TOTAL',['ldgDay','ldgNight']],['TO-DAY','toDay'],['LDG-DAY','ldgDay'],['TO-NIGHT','toNight'],['LDG-NIGHT','ldgNight'],['AUTOLAND','auto']];
+    function ckv(cc,key){ if(Array.isArray(key)){ return key.reduce(function(n,kk){return n+(cc[kk]||0);},0); } return cc[key]||0; }
+    var cVals=cKeys.map(function(k){ var a=ckv(ccA,k[1]), s=ckv(ccS,k[1]); return sc==='sim'?s:sc==='ac'?a:(a+s); });
     var crmax=Math.max.apply(null,cVals.concat([1]));
-    $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0;
+    $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ckv(ccA,k[1]), s=ckv(ccS,k[1]);
       var disp = sc==='all' ? ((a+s)+' ('+a+'/'+s+')') : undefined;
       return bar(k[0],cVals[i],crmax,'green',true,disp); }).join('');
     // cluster landings reflect scope (All = aircraft + sim)
@@ -782,7 +783,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4l · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4m · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
