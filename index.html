@@ -334,6 +334,16 @@
     <section class="view" id="view-sim">
       <p class="eyebrow">Simulator &amp; Checks</p>
       <div class="section-head"><h2>Checks & sessions</h2><button class="add" id="addSim">+ Session</button></div>
+      <div class="logf">
+        <div class="frow c2">
+          <div class="fgroup"><label>YEAR</label><select class="fld" id="simYear"><option value="">All</option></select></div>
+          <div class="fgroup"><label>MONTH</label><select class="fld" id="simMonth"><option value="">All</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select></div>
+        </div>
+        <div class="fgroup"><label>OTHER</label><input class="fld" id="simQ" placeholder="type, category, examiner, result, remarks"></div>
+        <div class="chiprow"><button type="button" class="chip qclr" id="simClr">Clear filters</button></div>
+      </div>
+      <div class="gt" id="simTotals" style="grid-template-columns:1fr 1fr; margin-bottom:12px"></div>
+      <div class="logcount" id="simCount"></div>
       <div id="simList"></div>
     </section>
 
@@ -718,7 +728,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3t · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3u · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -792,15 +802,51 @@
   }
 
   /* ---------- SIM ---------- */
+  var simFilter={year:'',month:'',q:''};
+  function simMatch(s){
+    if(simFilter.year && (s.date||'').slice(0,4)!==simFilter.year) return false;
+    if(simFilter.month && (s.date||'').slice(5,7)!==simFilter.month) return false;
+    if(simFilter.q){
+      var hay=[s.type,s.cat,s.exam,s.res,s.rem].join(' ').toLowerCase();
+      var terms=simFilter.q.toLowerCase().split(/\s+/).filter(Boolean);
+      if(!terms.every(function(t){return hay.indexOf(t)>=0;})) return false;
+    }
+    return true;
+  }
+  function fillSimYears(){
+    var sel=$('#simYear'); if(!sel) return;
+    var ys={}; S.sim.forEach(function(s){ var y=(s.date||'').slice(0,4); if(y) ys[y]=1; });
+    var cur=simFilter.year;
+    sel.innerHTML='<option value="">All</option>'+Object.keys(ys).sort().reverse().map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+    sel.value=cur;
+  }
   function renderSim(){
+    fillSimYears();
     var el=$('#simList');
-    if(!S.sim.length){ el.innerHTML='<div class="empty"><b>No sim records</b>Proficiency checks, OPC and LPC are logged here.</div>'; return; }
-    el.innerHTML=S.sim.map(function(s){ var d=(s.date||'').split('-');
+    if(!S.sim.length){ el.innerHTML='<div class="empty"><b>No sim records</b>Proficiency checks, OPC and LPC are logged here.</div>';
+      $('#simTotals').innerHTML=''; $('#simCount').textContent=''; return; }
+    var list=S.sim.filter(simMatch);
+    var tot=0; list.forEach(function(s){ tot+=s.total||0; });
+    $('#simTotals').innerHTML=grandCell('ac','Total time','',fmtHM(tot))+grandCell('tot','Sessions','',String(list.length));
+    var active=simFilter.year||simFilter.month||simFilter.q;
+    $('#simCount').textContent = active ? ('Showing '+list.length+' of '+S.sim.length) : '';
+    if(!list.length){ el.innerHTML='<div class="empty" style="margin-top:12px"><b>No matches</b>Adjust the filters above.</div>'; return; }
+    el.innerHTML=list.map(function(s){ var d=(s.date||'').split('-');
       var rp=s.res?('<span class="pill '+(s.res==='PASS'?'pass':(s.res==='FAIL'?'fail':''))+'">'+esc(s.res)+'</span>'):'';
       return '<div class="fcard sim" data-sid="'+s.id+'"><div class="d"><div class="dd">'+esc(d[2]||'--')+'</div><div class="dm">'+esc(monName(d[1]))+" '"+esc((d[0]||'').slice(2))+'</div></div>'+
         '<div class="mid"><div class="fn">'+esc(s.cat||'Session')+'</div><div class="ac">'+esc(s.type||'')+(s.exam?' \u00b7 '+esc(s.exam):'')+'</div></div>'+
         '<div class="rt"><div class="rr">'+rp+'</div><div class="du">'+fmtHM(s.total)+'</div></div></div>';
     }).join('');
+  }
+  function initSimFilter(){
+    var y=$('#simYear'); if(y) y.addEventListener('change',function(){ simFilter.year=this.value; renderSim(); });
+    var mo=$('#simMonth'); if(mo) mo.addEventListener('change',function(){ simFilter.month=this.value; renderSim(); });
+    var q=$('#simQ'); if(q) q.addEventListener('input',function(){ simFilter.q=this.value.trim(); renderSim(); });
+    var clr=$('#simClr'); if(clr) clr.addEventListener('click',function(){
+      simFilter={year:'',month:'',q:''};
+      if(y) y.value=''; if(mo) mo.value=''; if(q) q.value='';
+      renderSim();
+    });
   }
 
   /* ---------- MORE: aircraft + credentials ---------- */
@@ -1213,7 +1259,7 @@
   });
 
   /* ---------- boot ---------- */
-  function boot(){ initLogFilter(); return openDB().then(reload).then(function(){ go('dash'); }); }
+  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload};
 
