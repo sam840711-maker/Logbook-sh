@@ -430,7 +430,6 @@
     </div>
     <div class="fgroup"><label>Autolandings (count)</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_auto">&minus;</button><input class="fld mono stpi" id="f_auto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_auto">+</button></div></div>
     <div class="fgroup"><label>Approaches (type · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="e.g. ILS CAT3B 34L; RNP 30R"></div>
-    <div class="fgroup"><label>Task</label><select class="fld" id="f_task"><option value="">—</option><option>PF</option><option>PM</option></select></div>
 
     <div class="fdiv"></div>
     <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc"><span>Cross-country</span></label>
@@ -683,7 +682,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3o · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3p · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -775,7 +774,7 @@
     g('f_dual').value=f&&f.dual?fmtHM(f.dual):''; g('f_instr').value=f&&f.instr?fmtHM(f.instr):'';
     g('f_picname').value=f?(f.picName||''):'';
     g('f_dto').value=f&&f.dTo?f.dTo:''; g('f_dldg').value=f&&f.dLdg?f.dLdg:''; g('f_nto').value=f&&f.nTo?f.nTo:''; g('f_nldg').value=f&&f.nLdg?f.nLdg:'';
-    g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):''; g('f_task').value=f?(f.task||''):'';
+    g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):'';
     g('f_xc').checked=f?!!f.xc:false;
     g('f_rem').value=f?(f.rem||''):'';
     $$('.lnk').forEach(function(c){ c.checked=false; });
@@ -833,7 +832,7 @@
       picus:parseDur($('#f_picus').value), relief:parseDur($('#f_relief').value),
       picName:$('#f_picname').value.trim(),
       dTo:num($('#f_dto').value), dLdg:num($('#f_dldg').value), nTo:num($('#f_nto').value), nLdg:num($('#f_nldg').value),
-      auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:$('#f_task').value,
+      auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:(prev.task||''),
       acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:(prev.rule||'IFR'), rem:$('#f_rem').value.trim() };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
     put('flights',obj).then(reload).then(function(){ closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); });
