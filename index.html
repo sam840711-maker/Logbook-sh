@@ -402,7 +402,10 @@
 <div class="modal" id="m-flight"><div class="scrim" data-close></div><div class="sheet">
   <div class="sheet-head"><h3 id="fTitle">Add flight</h3><button class="del" id="fDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
-    <button class="btn ghost sm" id="fPaste" style="margin-bottom:14px">Paste from last flight</button>
+    <div style="display:flex; gap:8px; margin-bottom:14px">
+      <button class="btn ghost sm" id="fPaste">Paste from last flight</button>
+      <button class="btn ghost sm" id="fPhoto">Import photo data</button>
+    </div>
     <div class="frow c2">
       <div class="fgroup"><label>Date (UTC)</label><input type="date" class="fld" id="f_date"></div>
       <div class="fgroup"><label>Flight no.</label><input class="fld" id="f_fno" placeholder="e.g. KE085" autocapitalize="characters"></div>
@@ -527,6 +530,16 @@
     <div class="fgroup"><label>Alert (N days before expiry)</label><input class="fld mono" id="c_rem" inputmode="numeric" placeholder="60"></div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="credSave">Save</button></div>
+</div></div>
+
+<div class="modal" id="m-paste"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3>Import from photo</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0">Paste the JSON extracted from your log page. Each leg opens prefilled so you can review and edit before saving.</p>
+    <div class="fgroup"><label>Flight JSON</label><textarea class="fld" id="pasteJson" style="min-height:170px; font-family:var(--mono); font-size:12px" placeholder='{ "reg":"HL8220", "date":"2026-06-17", "picName":"...", "legs":[ {"fno":"TW669","dep":"ICN","arr":"RMQ","off":"0514","on":"0800","block":"2:46","night":"0:00","actual":"2:20"} ] }'></textarea></div>
+    <div class="fhint" id="pasteErr" style="color:#ff8a80"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="pasteParse">Parse &amp; review</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -706,7 +719,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3r · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3s · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -846,9 +859,41 @@
     syncAcType(); updLocal();
   }
   function openFlight(f){
+    pasteAll=[]; pasteIdx=0;
     editFid=f?f.id:null; $('#fTitle').textContent=f?'Edit flight':'Add flight'; $('#fDel').style.display=f?'block':'none';
     refreshAcDatalist(); fillFlight(f); openM('m-flight');
   }
+  // ---- Import from photo: paste JSON -> per-leg review ----
+  var pasteAll=[], pasteIdx=0;
+  function pick(o,keys){ for(var i=0;i<keys.length;i++){ var k=keys[i]; if(o[k]!=null && o[k]!=='') return o[k]; } return undefined; }
+  function tw2twb(fno){ fno=String(fno||'').trim().toUpperCase(); return fno.replace(/^TW(?=[0-9])/,'TWB'); }
+  function legToFlight(shared,leg){
+    var off=pick(leg,['off','out']), on=pick(leg,['on','in']);
+    var blk=pick(leg,['block','bt','total']), night=pick(leg,['night']);
+    var inst=pick(leg,['actual','inst','instrument','instTime']);
+    return { date:shared.date||'', reg:(shared.reg||'').toUpperCase(), picName:shared.picName||'',
+      fno:tw2twb(pick(leg,['fno','flightNo','flight'])), dep:(pick(leg,['dep','from'])||'').toUpperCase(), arr:(pick(leg,['arr','to'])||'').toUpperCase(),
+      off:off!=null?parseClock(off):null, on:on!=null?parseClock(on):null,
+      total:blk!=null?parseDur(blk):0, night:night!=null?parseDur(night):0, actual:inst!=null?parseDur(inst):0 };
+  }
+  function openReview(){
+    if(pasteIdx>=pasteAll.length){ pasteAll=[]; pasteIdx=0; closeM(); go('log'); toast('Import complete'); return; }
+    var leg=pasteAll[pasteIdx]; editFid=null; refreshAcDatalist(); fillFlight(leg);
+    if(!leg.total && leg.off!=null && leg.on!=null){ $('#f_total')._auto=true; autoBlock(); }
+    $('#fTitle').textContent='Review  '+(pasteIdx+1)+' / '+pasteAll.length;
+    $('#fDel').style.display='none'; openM('m-flight');
+  }
+  if($('#fPhoto')) $('#fPhoto').addEventListener('click',function(){ closeM(); $('#pasteErr').textContent=''; openM('m-paste'); });
+  if($('#pasteParse')) $('#pasteParse').addEventListener('click',function(){
+    var raw=$('#pasteJson').value.trim(); $('#pasteErr').textContent='';
+    if(!raw){ $('#pasteErr').textContent='Paste JSON first.'; return; }
+    var data; try{ data=JSON.parse(raw); }catch(e){ $('#pasteErr').textContent='Invalid JSON: '+e.message; return; }
+    var legs=Array.isArray(data)?data:(data.legs||[data]);
+    if(!legs.length){ $('#pasteErr').textContent='No legs found in JSON.'; return; }
+    var shared={ reg:data.reg||data.registration||'', date:data.date||'', picName:data.picName||data.pic||data.captain||'' };
+    pasteAll=legs.map(function(l){ return legToFlight(shared,l); }); pasteIdx=0;
+    closeM(); openReview();
+  });
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function mpType(){ var a=acByReg($('#f_reg').value); return a?!!a.multi:false; }
   function refreshMP(){ var el=$('#f_mp'); if(!el) return; var b=parseDur($('#f_total').value);
@@ -905,7 +950,10 @@
       auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:(prev.task||''),
       acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:(prev.rule||'IFR'), rem:$('#f_rem').value.trim() };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
-    put('flights',obj).then(reload).then(function(){ closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); });
+    put('flights',obj).then(reload).then(function(){
+      if(!editFid && pasteAll.length){ pasteIdx++; toast('Saved '+pasteIdx+' / '+pasteAll.length); openReview(); }
+      else { closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); }
+    });
   });
   $('#fDel').addEventListener('click',function(){ if(!editFid) return; if(!confirm('Delete this flight?')) return;
     del('flights',editFid).then(reload).then(function(){ closeM(); go('log'); toast('Deleted'); }); });
@@ -1164,7 +1212,7 @@
   /* ---------- boot ---------- */
   function boot(){ initLogFilter(); return openDB().then(reload).then(function(){ go('dash'); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
-  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S};
+  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload};
 
   if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
 })();
