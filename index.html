@@ -321,6 +321,8 @@
     <!-- LOGBOOK -->
     <section class="view" id="view-log">
       <p class="eyebrow">Logbook</p>
+      <div class="section-head acsec" id="logfHead"><h2>Search &amp; filters <span class="cnt" id="logfActive"></span></h2><span class="chev" id="logfChev">&#9656;</span></div>
+      <div class="collapse" id="logfWrap">
       <div class="logf">
         <div class="frow c2">
           <div class="fgroup"><label>YEAR</label><select class="fld" id="logYear"><option value="">All</option></select></div>
@@ -333,6 +335,7 @@
           <button type="button" class="chip" id="logAL" data-fil="auto">Autoland</button>
           <button type="button" class="chip qclr" id="logClr">Clear filters</button>
         </div>
+      </div>
       </div>
       <div class="gt" id="logTotals" style="grid-template-columns:1fr 1fr; margin-bottom:12px"></div>
       <div class="logbar">
@@ -353,6 +356,8 @@
     <section class="view" id="view-sim">
       <p class="eyebrow">Simulator &amp; Checks</p>
       <div class="section-head"><h2>Checks & sessions</h2><button class="add" id="addSim">+ Session</button></div>
+      <div class="section-head acsec" id="simfHead"><h2>Search &amp; filters <span class="cnt" id="simfActive"></span></h2><span class="chev" id="simfChev">&#9656;</span></div>
+      <div class="collapse" id="simfWrap">
       <div class="logf">
         <div class="frow c2">
           <div class="fgroup"><label>YEAR</label><select class="fld" id="simYear"><option value="">All</option></select></div>
@@ -360,6 +365,7 @@
         </div>
         <div class="fgroup"><label>OTHER</label><input class="fld" id="simQ" placeholder="type, category, examiner, result, remarks"></div>
         <div class="chiprow"><button type="button" class="chip qclr" id="simClr">Clear filters</button></div>
+      </div>
       </div>
       <div class="gt" id="simTotals" style="grid-template-columns:1fr 1fr; margin-bottom:12px"></div>
       <div class="logcount" id="simCount"></div>
@@ -783,7 +789,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4o · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4p · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -854,6 +860,7 @@
     var t=totals(list);
     $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n));
     $('#logCount').textContent = filterActive() ? ('Showing '+list.length+' of '+S.flights.length) : '';
+    var lfa=$('#logfActive'); if(lfa) lfa.textContent = filterActive()? '\u00b7 on' : '';
     $('#logList').innerHTML=list.map(cardFlight).join('');
   }
   function initLogFilter(){
@@ -931,6 +938,7 @@
     $('#simTotals').innerHTML=grandCell('ac','Total time','',fmtHM(tot))+grandCell('tot','Sessions','',String(list.length));
     var active=simFilter.year||simFilter.month||simFilter.q;
     $('#simCount').textContent = active ? ('Showing '+list.length+' of '+S.sim.length) : '';
+    var sfa=$('#simfActive'); if(sfa) sfa.textContent = active? '\u00b7 on' : '';
     if(!list.length){ el.innerHTML='<div class="empty" style="margin-top:12px"><b>No matches</b>Adjust the filters above.</div>'; return; }
     el.innerHTML=list.map(function(s){ var d=(s.date||'').split('-');
       var rp=s.res?('<span class="pill '+(s.res==='PASS'?'pass':(s.res==='FAIL'?'fail':''))+'">'+esc(s.res)+'</span>'):'';
@@ -1208,6 +1216,10 @@
   function toggleDev(open){ var w=$('#devWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#devChev').classList.toggle('down',willOpen); }
   $('#devHead').addEventListener('click',function(e){ if(e.target.closest('#addDev')) return; toggleDev(); });
   $('#devSearch').addEventListener('input',function(){ if(this.value.trim()) toggleDev(true); renderDevList(); });
+  function toggleLogf(open){ var w=$('#logfWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#logfChev').classList.toggle('down',willOpen); }
+  function toggleSimf(open){ var w=$('#simfWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#simfChev').classList.toggle('down',willOpen); }
+  $('#logfHead').addEventListener('click',toggleLogf);
+  $('#simfHead').addEventListener('click',toggleSimf);
   $('#devSave').addEventListener('click',function(){
     var type=$('#v_type').value.trim().toUpperCase(); if(!type){ toast('Enter an aircraft type'); return; }
     var obj={id:editVid||uid(),type:type,name:$('#v_name').value.trim(),level:$('#v_level').value,rem:$('#v_rem').value.trim()};
