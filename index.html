@@ -444,7 +444,6 @@
   <div class="sheet-head"><h3 id="fTitle">Add flight</h3><button class="del" id="fDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
     <div style="display:flex; gap:8px; margin-bottom:14px">
-      <button class="btn ghost sm" id="fPaste">Paste from last flight</button>
       <button class="btn ghost sm" id="fPhoto">Import photo data</button>
     </div>
     <div class="frow c2">
@@ -789,7 +788,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4q · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4r · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -1159,10 +1158,16 @@
     if(tgt) tgt.addEventListener('input',function(){ cb.checked=false; }); });
   ['f_dep','f_arr'].forEach(function(id){ var el=$('#'+id); el.addEventListener('blur',function(){ el.value=resolveApt(el.value); updLocal(); }); });
   $('#tab-add').addEventListener('click',function(){ openFlight(null); });
-  $('#fPaste').addEventListener('click',function(){ var last=S.flights[0]; if(!last){ toast('No previous flight'); return; }
-    editFid=null; $('#fTitle').textContent='Add flight'; $('#fDel').style.display='none';
-    var clone={}; for(var k in last) clone[k]=last[k]; clone.date=today(); clone.dep=last.arr; clone.arr=''; delete clone.id;
-    fillFlight(clone); toast('Copied last flight'); });
+  // Flight no. → autofill route: if a prior flight has the same number, pull its dep/arr (only when blank, never overwriting typed values).
+  var fnoEl=$('#f_fno'); if(fnoEl) fnoEl.addEventListener('blur',function(){
+    var v=this.value.trim().toUpperCase(); if(!v) return;
+    if($('#f_dep').value.trim() || $('#f_arr').value.trim()) return;
+    var m=S.flights.filter(function(x){ return (x.fno||'').toUpperCase()===v && (x.dep||x.arr); })[0]; // S.flights is date-desc → most recent match
+    if(!m) return;
+    if(m.dep) $('#f_dep').value=m.dep;
+    if(m.arr) $('#f_arr').value=m.arr;
+    updLocal(); toast('Route from last '+v);
+  });
 
   $('#fSave').addEventListener('click',function(){
     var reg=$('#f_reg').value.trim().toUpperCase(); var a=acByReg(reg);
