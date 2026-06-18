@@ -422,6 +422,12 @@
       </div>
       <button class="btn ghost sm filebtn" id="impPilotlogBtn" style="margin-top:10px; width:100%">Import CrewLounge PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
       <div class="fhint" style="margin-top:10px">Data is stored only on this device (IndexedDB). Back up to JSON regularly; restore replaces all current data. PILOTLOG import adds flights, sim sessions and aircraft, skipping duplicates.</div>
+
+      <div class="section-head acsec" id="snapHead"><h2>Restore points <span class="cnt" id="snapCount">(0)</span></h2><span class="chev" id="snapChev">&#9656;</span><button class="add" id="snapNow">+ Save now</button></div>
+      <div id="snapWrap" class="collapse">
+        <div id="snapList"></div>
+        <div class="fhint" style="margin-top:8px">Saved automatically on app open when data changes, and just before restore / import / delete-all. Keeps the latest 10 on this device. Restoring replaces all current data (a point for the current state is saved first).</div>
+      </div>
     </section>
   </main>
 
@@ -652,7 +658,7 @@
   function daysBetween(a,b){ return Math.round((a-b)/86400000); }
 
   /* ---------- DB ---------- */
-  var DB=null, DBNAME='pilot_logbook', VER=2, STORES=['flights','aircraft','sim','credentials','simdevices'];
+  var DB=null, DBNAME='pilot_logbook', VER=3, DATA_STORES=['flights','aircraft','sim','credentials','simdevices'], STORES=DATA_STORES.concat(['snapshots']);
   function openDB(){ return new Promise(function(res,rej){
     var rq=indexedDB.open(DBNAME,VER);
     rq.onupgradeneeded=function(e){ var db=e.target.result;
@@ -662,13 +668,14 @@
   });}
   function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
   function getAll(store){ return new Promise(function(res,rej){ var r=tx(store,'readonly').getAll(); r.onsuccess=function(){res(r.result||[]);}; r.onerror=function(){rej(r.error);}; }); }
+  function getOne(store,id){ return new Promise(function(res,rej){ var r=tx(store,'readonly').get(id); r.onsuccess=function(){res(r.result);}; r.onerror=function(){rej(r.error);}; }); }
   function put(store,obj){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').put(obj); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);}; }); }
   function del(store,id){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').delete(id); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);}; }); }
   function clearStore(store){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').clear(); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);}; }); }
 
   /* ---------- state ---------- */
   var S={flights:[],aircraft:[],sim:[],credentials:[],simdevices:[]};
-  function reload(){ return Promise.all(STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[];
+  function reload(){ return Promise.all(DATA_STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[];
     S.flights.sort(byDateDesc); S.sim.sort(byDateDesc); }); }
   function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||'') || (b._c||0)-(a._c||0); }
 
@@ -1274,6 +1281,8 @@
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
+    var srr=e.target.closest('[data-snaprestore]'); if(srr){ restoreSnapshot(srr.getAttribute('data-snaprestore')); return; }
+    var sdd=e.target.closest('[data-snapdel]'); if(sdd){ var sid=sdd.getAttribute('data-snapdel'); if(confirm('Delete this restore point?')) del('snapshots',sid).then(function(){ if(snapSectionOpen) renderSnapList(); }); return; }
     var cr=e.target.closest('[data-cid]'); if(cr){ var c=S.credentials.filter(function(x){return x.id===cr.getAttribute('data-cid');})[0]; if(c) openCred(c); return; }
     var gb=e.target.closest('[data-go]'); if(gb){ go(gb.getAttribute('data-go')); }
   });
@@ -1293,10 +1302,10 @@
     var rd=new FileReader(); rd.onload=function(){ try{ var j=JSON.parse(rd.result); var d=j.data||j;
       if(!d.flights&&!d.aircraft){ toast('Unrecognized format'); return; }
       if(!confirm('Replace all current data with this backup. Continue?')) return;
-      Promise.all(STORES.map(clearStore)).then(function(){
-        var ops=[]; STORES.forEach(function(st){ (d[st]||[]).forEach(function(o){ if(o&&o.id) ops.push(put(st,o)); }); });
+      saveSnapshot('before restore').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(function(){
+        var ops=[]; DATA_STORES.forEach(function(st){ (d[st]||[]).forEach(function(o){ if(o&&o.id) ops.push(put(st,o)); }); });
         return Promise.all(ops);
-      }).then(reload).then(function(){ go('dash'); toast('Restored'); });
+      }).then(reload).then(function(){ go('dash'); toast('Restored'); if(snapSectionOpen) renderSnapList(); });
     }catch(err){ toast('Restore failed: invalid file'); } }; rd.readAsText(file); e.target.value='';
   });
   $('#expCsv').addEventListener('click',function(){
@@ -1308,8 +1317,41 @@
   });
   function csv(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
   $('#wipe').addEventListener('click',function(){ if(!confirm('Permanently delete all data. Have you backed up?')) return;
-    if(!confirm('Really delete everything? This cannot be undone.')) return;
-    Promise.all(STORES.map(clearStore)).then(reload).then(function(){ go('dash'); toast('All data deleted'); }); });
+    if(!confirm('Really delete everything? A restore point of the current data is saved first, so this can be undone from Restore points.')) return;
+    saveSnapshot('before delete-all').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(reload).then(function(){ go('dash'); toast('All data deleted'); if(snapSectionOpen) renderSnapList(); }); });
+
+  /* ---------- restore points (auto snapshots) ---------- */
+  var SNAP_MAX=10, snapSectionOpen=false;
+  function snapData(){ var o={}; DATA_STORES.forEach(function(st){ o[st]=(S[st]||[]).map(function(x){ var c={}; for(var k in x) c[k]=x[k]; return c; }); }); return o; }
+  function dataSig(){ var mc=0; (S.flights||[]).forEach(function(f){ if((f._c||0)>mc) mc=f._c; }); (S.sim||[]).forEach(function(s){ if((s._c||0)>mc) mc=s._c; });
+    return DATA_STORES.map(function(st){ return (S[st]||[]).length; }).join('/')+':'+mc; }
+  function snapCounts(){ return {flights:(S.flights||[]).length, sim:(S.sim||[]).length, aircraft:(S.aircraft||[]).length}; }
+  function pruneSnaps(){ return getAll('snapshots').then(function(list){ list.sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');}); return Promise.all(list.slice(SNAP_MAX).map(function(s){return del('snapshots',s.id);})); }); }
+  function saveSnapshot(reason){ var rec={id:uid(),ts:new Date().toISOString(),reason:reason||'manual',sig:dataSig(),counts:snapCounts(),data:snapData()};
+    return put('snapshots',rec).then(pruneSnaps).then(function(){ if(snapSectionOpen) renderSnapList(); }); }
+  function maybeAutoSnapshot(){ if(!(S.flights.length||S.aircraft.length||S.sim.length)) return Promise.resolve();
+    return getAll('snapshots').then(function(list){ list.sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
+      if(list[0] && list[0].sig===dataSig()) return; return saveSnapshot('auto'); }).catch(function(){}); }
+  function fmtSnapTime(iso){ try{ var d=new Date(iso); var p=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return iso||''; } }
+  function renderSnapList(){ var el=$('#snapList'); if(!el) return;
+    getAll('snapshots').then(function(list){ list.sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
+      if($('#snapCount')) $('#snapCount').textContent='('+list.length+')';
+      if(!list.length){ el.innerHTML='<div class="empty"><b>No restore points</b>One is saved automatically when your data changes.</div>'; return; }
+      el.innerHTML=list.map(function(s){ var c=s.counts||{};
+        return '<div class="row"><div class="main"><div class="t">'+esc(fmtSnapTime(s.ts))+'</div><div class="s">'+esc(s.reason||'')+' \u00b7 Flights '+(c.flights||0)+' \u00b7 Sim '+(c.sim||0)+' \u00b7 AC '+(c.aircraft||0)+'</div></div>'+
+          '<div class="r" style="display:flex; gap:6px; align-items:center"><button type="button" class="chip" data-snaprestore="'+s.id+'">Restore</button><button type="button" class="chip danger" data-snapdel="'+s.id+'">\u2715</button></div></div>';
+      }).join('');
+    }).catch(function(){ el.innerHTML='<div class="fhint">Failed to load restore points</div>'; });
+  }
+  function restoreSnapshot(id){ getOne('snapshots',id).then(function(rec){ if(!rec){ toast('Restore point not found'); return; }
+    if(!confirm('Restore data to '+fmtSnapTime(rec.ts)+'?\nCurrent data will be replaced. A restore point of the current state is saved first.')) return;
+    saveSnapshot('before restore').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(function(){
+      var ops=[]; DATA_STORES.forEach(function(st){ (rec.data[st]||[]).forEach(function(o){ if(o&&o.id) ops.push(put(st,o)); }); }); return Promise.all(ops);
+    }).then(reload).then(function(){ go('dash'); toast('Restored to '+fmtSnapTime(rec.ts)); if(snapSectionOpen) renderSnapList(); });
+  }); }
+  function toggleSnap(open){ var w=$('#snapWrap'); if(!w) return; var willOpen=open!=null?open:!w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#snapChev').classList.toggle('down',willOpen); snapSectionOpen=willOpen; if(willOpen) renderSnapList(); }
+  if($('#snapHead')) $('#snapHead').addEventListener('click',function(e){ if(e.target.closest('#snapNow')) return; toggleSnap(); });
+  if($('#snapNow')) $('#snapNow').addEventListener('click',function(e){ e.stopPropagation(); saveSnapshot('manual').then(function(){ toggleSnap(true); toast('Restore point saved'); }); });
 
   /* ---------- PDF export ---------- */
   var PROFILE_K='logbook_profile';
@@ -1468,13 +1510,13 @@
       (res.updates||[]).forEach(function(f){ items.push({store:'flights',obj:f}); });
       res.sims.forEach(function(s){ items.push({store:'sim',obj:s}); });
       (res.simUpdates||[]).forEach(function(s){ items.push({store:'sim',obj:s}); });
-      bulkWrite(items).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' · repaired '+nUpd); })
+      saveSnapshot('before PILOTLOG import').then(function(){ return bulkWrite(items); }).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' · repaired '+nUpd); })
         .catch(function(err){ console.error(err); toast('Import write failed'); });
     }; rd.readAsArrayBuffer(file); e.target.value='';
   });
 
   /* ---------- boot ---------- */
-  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); }); }
+  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); maybeAutoSnapshot(); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
