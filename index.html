@@ -123,6 +123,14 @@
   .collapse.open{display:block}
   .acgrp{font-size:11px; letter-spacing:.06em; color:var(--ink-faint); text-transform:uppercase; margin:12px 2px 6px; display:flex; align-items:center; gap:6px}
   .acgrp span{color:var(--cyan); font-family:var(--mono)}
+  .lbll{display:flex; align-items:center; justify-content:space-between; gap:6px}
+  .eqb{display:inline-flex; align-items:center; gap:4px; font-size:10px; letter-spacing:.02em; color:var(--ink-faint); text-transform:none; font-weight:400}
+  .eqb input{width:15px; height:15px; margin:0; accent-color:var(--cyan)}
+  .stp{display:flex; gap:6px; align-items:stretch}
+  .stp .stpb{flex:0 0 46px; border:1px solid var(--line-soft); border-radius:10px; background:var(--panel-2); color:var(--ink); font-size:22px; line-height:1; padding:0}
+  .stp .stpb:active{background:#1c2a33}
+  .stp .stpi{flex:1; text-align:center}
+  .sigpad{display:block; width:100%; height:96px; background:#fff; border:1px solid var(--line-soft); border-radius:10px; touch-action:none}
 
   .empty{text-align:center; color:var(--ink-faint); font-size:13px; padding:30px 16px; border:1px dashed var(--line);
     border-radius:var(--r); background:var(--panel-2)}
@@ -279,14 +287,12 @@
       <div class="bars" id="dashFunc"></div>
       <div class="section-head"><h2>Flight condition</h2></div>
       <div class="bars" id="dashCond"></div>
-      <div class="section-head"><h2>Currencies</h2></div>
+      <div class="section-head"><h2>Currencies</h2><span class="cnt" id="dashCurrLbl" style="margin-left:auto"></span></div>
       <div class="bars" id="dashCurr"></div>
       <div class="section-head"><h2>Aircraft model</h2></div>
       <div class="bars" id="dashModel"></div>
       <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
-      <div class="section-head"><h2>Recent flights</h2><button class="add" data-go="log">View all</button></div>
-      <div id="dashRecent"></div>
       <div class="appfoot" id="appfoot"></div>
     </section>
 
@@ -315,10 +321,20 @@
       </div>
       <div class="section-head"><h2>Licences · Medical · Recency</h2><button class="add" id="addCred">+ Item</button></div>
       <div id="credList"></div>
+      <div class="section-head"><h2>Entry defaults</h2></div>
+      <div class="frow c2">
+        <div class="fgroup" style="margin-bottom:6px"><label>Flight no. prefix</label><input class="fld mono" id="d_fnoPfx" placeholder="e.g. TWB"></div>
+        <div class="fgroup" style="margin-bottom:6px"><label>Registration prefix</label><input class="fld mono" id="d_regPfx" placeholder="e.g. HL"></div>
+      </div>
+      <div class="fhint" style="margin-bottom:4px">New flights pre-fill these prefixes — then type only the number after them.</div>
       <div class="section-head"><h2>PDF logbook export</h2></div>
       <div class="frow c2">
         <div class="fgroup" style="margin-bottom:8px"><label>Pilot name</label><input class="fld" id="p_name" placeholder="SH LEE"></div>
         <div class="fgroup" style="margin-bottom:8px"><label>Licence number</label><input class="fld" id="p_lic" placeholder="KR-ATPL-..."></div>
+      </div>
+      <div class="fgroup" style="margin-bottom:8px"><label>Signature (sign below — printed on every PDF page)</label>
+        <canvas id="p_sig" class="sigpad" width="360" height="96"></canvas>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:6px"><button class="btn ghost sm" id="p_sigClear" type="button">Clear signature</button><span class="fhint" id="p_sigSaved"></span></div>
       </div>
       <div class="miscbtns3">
         <button class="btn ghost sm" data-pdf="EASA">EASA</button>
@@ -374,43 +390,43 @@
     <div class="frow c3">
       <div class="fgroup"><label>OUT (UTC)</label><input class="fld mono" id="f_off" inputmode="numeric" placeholder="0830"></div>
       <div class="fgroup"><label>IN (UTC)</label><input class="fld mono" id="f_on" inputmode="numeric" placeholder="1745"></div>
-      <div class="fgroup"><label>BLOCK</label><input class="fld mono" id="f_total" placeholder="auto"></div>
+      <div class="fgroup"><label>BLOCK</label><input class="fld mono dur" id="f_total" placeholder="auto"></div>
     </div>
     <div class="fhint" id="f_localHint" style="margin-top:-6px"></div>
 
     <div class="fdiv"></div><p class="fsub">Function · time</p>
     <div class="frow c2">
-      <div class="fgroup"><label>PIC</label><input class="fld mono" id="f_pic" placeholder="0:00"></div>
-      <div class="fgroup"><label>SIC (co-pilot)</label><input class="fld mono" id="f_sic" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">PIC <span class="eqb"><input type="checkbox" class="lnk" data-for="f_pic">= blk</span></label><input class="fld mono dur" id="f_pic" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">SIC <span class="eqb"><input type="checkbox" class="lnk" data-for="f_sic">= blk</span></label><input class="fld mono dur" id="f_sic" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>NIGHT (manual)</label><input class="fld mono" id="f_night" placeholder="0:00"></div>
-      <div class="fgroup"><label>ACTUAL INSTRUMENT</label><input class="fld mono" id="f_actual" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">NIGHT <span class="eqb"><input type="checkbox" class="lnk" data-for="f_night">= blk</span></label><input class="fld mono dur" id="f_night" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">ACTUAL INST <span class="eqb"><input type="checkbox" class="lnk" data-for="f_actual">= blk</span></label><input class="fld mono dur" id="f_actual" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>SIMULATED INSTRUMENT</label><input class="fld mono" id="f_sim" placeholder="0:00"></div>
-      <div class="fgroup"><label>IFR (optional)</label><input class="fld mono" id="f_ifr" placeholder="0:00"></div>
+      <div class="fgroup"><label>SIMULATED INST</label><input class="fld mono dur" id="f_sim" placeholder="0:00"></div>
+      <div class="fgroup"><label>IFR (optional)</label><input class="fld mono dur" id="f_ifr" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>PICUS</label><input class="fld mono" id="f_picus" placeholder="0:00"></div>
-      <div class="fgroup"><label>CRUISE RELIEF</label><input class="fld mono" id="f_relief" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">PICUS <span class="eqb"><input type="checkbox" class="lnk" data-for="f_picus">= blk</span></label><input class="fld mono dur" id="f_picus" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">RELIEF <span class="eqb"><input type="checkbox" class="lnk" data-for="f_relief">= blk</span></label><input class="fld mono dur" id="f_relief" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>DUAL (received)</label><input class="fld mono" id="f_dual" placeholder="0:00"></div>
-      <div class="fgroup"><label>INSTRUCTOR (given)</label><input class="fld mono" id="f_instr" placeholder="0:00"></div>
+      <div class="fgroup"><label class="lbll">DUAL <span class="eqb"><input type="checkbox" class="lnk" data-for="f_dual">= blk</span></label><input class="fld mono dur" id="f_dual" placeholder="0:00"></div>
+      <div class="fgroup"><label>INSTRUCTOR</label><input class="fld mono dur" id="f_instr" placeholder="0:00"></div>
     </div>
     <div class="fgroup"><label>PIC name</label><input class="fld" id="f_picname" placeholder="SELF or captain name"></div>
 
     <div class="fdiv"></div><p class="fsub">Takeoffs / landings · approaches</p>
     <div class="frow c2">
-      <div class="fgroup"><label>Day T/O</label><input class="fld mono" id="f_dto" inputmode="numeric" placeholder="0"></div>
-      <div class="fgroup"><label>Day LDG</label><input class="fld mono" id="f_dldg" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Day T/O</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_dto">&minus;</button><input class="fld mono stpi" id="f_dto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_dto">+</button></div></div>
+      <div class="fgroup"><label>Day LDG</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_dldg">&minus;</button><input class="fld mono stpi" id="f_dldg" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_dldg">+</button></div></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>Night T/O</label><input class="fld mono" id="f_nto" inputmode="numeric" placeholder="0"></div>
-      <div class="fgroup"><label>Night LDG</label><input class="fld mono" id="f_nldg" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Night T/O</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_nto">&minus;</button><input class="fld mono stpi" id="f_nto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_nto">+</button></div></div>
+      <div class="fgroup"><label>Night LDG</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_nldg">&minus;</button><input class="fld mono stpi" id="f_nldg" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_nldg">+</button></div></div>
     </div>
-    <div class="fgroup"><label>Autolandings (count)</label><input class="fld mono" id="f_auto" inputmode="numeric" placeholder="0"></div>
+    <div class="fgroup"><label>Autolandings (count)</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="f_auto">&minus;</button><input class="fld mono stpi" id="f_auto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="f_auto">+</button></div></div>
     <div class="fgroup"><label>Approaches (type · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="e.g. ILS CAT3B 34L; RNP 30R"></div>
     <div class="fgroup"><label>Task</label><select class="fld" id="f_task"><option value="">—</option><option>PF</option><option>PM</option></select></div>
 
@@ -451,13 +467,19 @@
       <div class="fgroup"><label>Category</label>
         <select class="fld" id="s_cat"><option>Proficiency Check</option><option>OPC</option><option>LPC</option><option>Training</option><option>Initial / Conversion</option><option>Other</option></select></div>
     </div>
+    <div class="fgroup"><label>Type / device</label><input class="fld" id="s_type" placeholder="A321 FFS"></div>
     <div class="frow c2">
-      <div class="fgroup"><label>Type / device</label><input class="fld" id="s_type" placeholder="A321 FFS"></div>
-      <div class="fgroup"><label>Device ID</label><input class="fld" id="s_dev" placeholder="Optional"></div>
+      <div class="fgroup"><label>Session time</label><input class="fld mono dur" id="s_total" placeholder="4:00"></div>
+      <div class="fgroup"><label>Instrument time</label><input class="fld mono dur" id="s_instr" placeholder="0:00"></div>
+    </div>
+    <div class="fdiv"></div><p class="fsub">Takeoffs / landings (count toward currency)</p>
+    <div class="frow c2">
+      <div class="fgroup"><label>Day T/O</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="s_dto">&minus;</button><input class="fld mono stpi" id="s_dto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="s_dto">+</button></div></div>
+      <div class="fgroup"><label>Day LDG</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="s_dldg">&minus;</button><input class="fld mono stpi" id="s_dldg" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="s_dldg">+</button></div></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>Session time</label><input class="fld mono" id="s_total" placeholder="4:00"></div>
-      <div class="fgroup"><label>Instrument time</label><input class="fld mono" id="s_instr" placeholder="0:00"></div>
+      <div class="fgroup"><label>Night T/O</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="s_nto">&minus;</button><input class="fld mono stpi" id="s_nto" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="s_nto">+</button></div></div>
+      <div class="fgroup"><label>Night LDG</label><div class="stp"><button type="button" class="stpb" data-step="-1" data-for="s_nldg">&minus;</button><input class="fld mono stpi" id="s_nldg" inputmode="numeric" placeholder="0"><button type="button" class="stpb" data-step="1" data-for="s_nldg">+</button></div></div>
     </div>
     <div class="frow c2">
       <div class="fgroup"><label>Examiner</label><input class="fld" id="s_exam" placeholder="Optional"></div>
@@ -503,6 +525,14 @@
     if(v==null) return 0; v=String(v).trim(); if(!v) return 0;
     if(v.indexOf(':')>=0){ var p=v.split(':'); var h=parseInt(p[0],10)||0; var m=parseInt(p[1],10)||0; return h*60+(m||0); }
     var f=parseFloat(v); if(isNaN(f)) return 0; return Math.round(f*60);
+  }
+  // duration entry: "2:46" or "246" (last 2 digits = minutes) or "2.5" (decimal hours)
+  function parseDur(v){ v=String(v==null?'':v).trim(); if(!v) return 0;
+    if(v.indexOf(':')>=0){ var p=v.split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
+    if(v.indexOf('.')>=0){ var f=parseFloat(v); return isNaN(f)?0:Math.round(f*60); }
+    var d=v.replace(/\D/g,''); if(!d) return 0;
+    if(d.length<=2) return parseInt(d,10)||0;
+    return (parseInt(d.slice(0,-2),10)||0)*60 + (parseInt(d.slice(-2),10)||0);
   }
   function fmtHM(min){ min=Math.round(min||0); var s=min<0?'-':''; min=Math.abs(min); var h=Math.floor(min/60); var m=min%60; return s+h+':'+(m<10?'0':'')+m; }
   // parse clock "0830"/"08:30"/"830" -> minutes of day, or null
@@ -565,6 +595,10 @@
     S.flights.forEach(function(f){ if(!f.date) return; var d=new Date(f.date+'T00:00:00'); var add=pred(f); if(add>0){ if(d>=cut) c+=add; if(!last||f.date>last) last=f.date; } });
     return {count:c,last:last};
   }
+  function recentOf(list, daysN, pred){ var cut=new Date(); cut.setDate(cut.getDate()-daysN); var c=0, last=null;
+    (list||[]).forEach(function(f){ if(!f.date) return; var d=new Date(f.date+'T00:00:00'); var add=pred(f); if(add>0){ if(d>=cut) c+=add; if(!last||f.date>last) last=f.date; } });
+    return {count:c,last:last};
+  }
 
   /* ---------- DASHBOARD ---------- */
   var dashScope='all';
@@ -614,24 +648,31 @@
     var fmax=Math.max(t.pic,t.picus,t.sic,t.dual,t.relief,1);
     $('#dashFunc').innerHTML=[['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
     var dayMin=Math.max(t.total-t.night,0);
-    var cmax=Math.max(t.night,dayMin,t.actual,t.simInst,t.xc,1);
-    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['SIM INST',t.simInst,''],['CROSS CTRY',t.xc,'']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
-    var curr=[['TO-DAY',t.toDay],['LDG-DAY',t.ldgDay],['TO-NIGHT',t.toNight],['LDG-NIGHT',t.ldgNight],['AUTOLAND',t.auto]];
+    var cmax=Math.max(t.night,dayMin,t.actual,t.xc,1);
+    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,'']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
+    // currencies: follow the Aircraft/Simulator toggle so sim and real are never mixed
+    var curSrc = (dashScope==='sim') ? sm : fl;
+    var cc=curCounts(curSrc);
+    var curLbl = (dashScope==='sim') ? 'Simulator' : 'Actual flight';
+    $('#dashCurrLbl').textContent = curLbl;
+    var curr=[['TO-DAY',cc.toDay],['LDG-DAY',cc.ldgDay],['TO-NIGHT',cc.toNight],['LDG-NIGHT',cc.ldgNight],['AUTOLAND',cc.auto]];
     var crmax=Math.max.apply(null,curr.map(function(c){return c[1];}).concat([1]));
     $('#dashCurr').innerHTML=curr.map(function(c){return bar(c[0],c[1],crmax,'green',true);}).join('');
+    // cluster landings reflect the same scope source
+    $('#dashLdg').textContent = (dashScope==='sim') ? cc.ldg : t.ldg;
     var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
     var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
-    // recency
-    var ldg90=recent(90,function(f){return (f.dLdg||0)+(f.nLdg||0);});
-    var nldg90=recent(90,function(f){return (f.nLdg||0);});
-    var auto90=recent(90,function(f){return (f.auto||0);});
+    // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
+    var aL=recentOf(S.flights,90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
+    var aN=recentOf(S.flights,90,function(f){return f.nLdg||0;}), sN=recentOf(S.sim,90,function(s){return s.nLdg||0;}); var tN=aN.count+sN.count;
+    var aA=recentOf(S.flights,90,function(f){return f.auto||0;}), sA=recentOf(S.sim,90,function(s){return s.auto||0;}); var tA=aA.count+sA.count;
     var rec=[];
-    rec.push(recRow(ldg90.count>=3?'g':(ldg90.count>0?'a':'r'),'90-day landings', 'Last 90 days · min 3', ldg90.count, ''));
-    rec.push(recRow(nldg90.count>=1?'g':'x','Night landings', nldg90.last?'Last '+nldg90.last:'No record', nldg90.count,''));
-    rec.push(recRow(auto90.count>0?'g':'x','Autolandings', auto90.last?('Last '+auto90.last):'None in 90 days', auto90.count,''));
+    rec.push(recRow(tL>=3?'g':(tL>0?'a':'r'),'90-day landings', 'Aircraft '+aL.count+' \u00b7 Sim '+sL.count+' \u00b7 last 90 days \u00b7 min 3', tL, ''));
+    rec.push(recRow(tN>=1?'g':'x','Night landings', 'Aircraft '+aN.count+' \u00b7 Sim '+sN.count+' \u00b7 last 90 days', tN, ''));
+    rec.push(recRow(tA>0?'g':'x','Autolandings', 'Aircraft '+aA.count+' \u00b7 Sim '+sA.count+' \u00b7 last 90 days', tA, ''));
     // credentials
     var crd=S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');});
     crd.forEach(function(c){
@@ -641,11 +682,11 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-
-    $('#dashRecent').innerHTML = S.flights.length ? S.flights.slice(0,5).map(cardFlight).join('')
-      : '<div class="empty"><b>No flights yet</b>Use the + button to add your first flight.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3d · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3j · offline';
   }
+  function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
+    list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
+    c.ldg=c.ldgDay+c.ldgNight; return c; }
   function recRow(s,name,meta,count,unit,topOverride,botOverride){
     var val = topOverride!=null ? ('<b>'+esc(topOverride)+'</b>'+(botOverride?esc(botOverride):''))
             : ('<b>'+(count==null?'—':count)+'</b>'+(unit||''));
@@ -722,7 +763,8 @@
   function acByReg(reg){ reg=(reg||'').trim().toUpperCase(); for(var i=0;i<S.aircraft.length;i++){ if((S.aircraft[i].reg||'').toUpperCase()===reg) return S.aircraft[i]; } return null; }
   function fillFlight(f){
     var g=function(id){return $('#'+id);};
-    g('f_date').value=f&&f.date?f.date:today(); g('f_fno').value=f?(f.fno||''):''; g('f_reg').value=f?(f.reg||''):'';
+    var D=loadDefaults();
+    g('f_date').value=f&&f.date?f.date:today(); g('f_fno').value=f?(f.fno||''):(D.fnoPfx||''); g('f_reg').value=f?(f.reg||''):(D.regPfx||'');
     g('f_dep').value=f?(f.dep||''):''; g('f_arr').value=f?(f.arr||''):'';
     g('f_off').value=f&&f.off!=null?clk(f.off):''; g('f_on').value=f&&f.on!=null?clk(f.on):''; g('f_total').value=f&&f.total?fmtHM(f.total):''; g('f_total')._auto=false;
     g('f_pic').value=f&&f.pic?fmtHM(f.pic):''; g('f_sic').value=f&&f.sic?fmtHM(f.sic):'';
@@ -735,6 +777,7 @@
     g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):''; g('f_task').value=f?(f.task||''):'';
     g('f_xc').checked=f?!!f.xc:false; g('f_rule').value=f?(f.rule||'IFR'):'IFR';
     g('f_rem').value=f?(f.rem||''):'';
+    $$('.lnk').forEach(function(c){ c.checked=false; });
     syncAcType(); updLocal();
   }
   function openFlight(f){
@@ -744,7 +787,9 @@
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function syncAcType(){ var a=acByReg($('#f_reg').value); $('#f_acType').textContent=a?(a.type+' · '+a.cls):''; }
   function autoBlock(){ var off=parseClock($('#f_off').value), on=parseClock($('#f_on').value);
-    if(off!=null&&on!=null){ var b=(on-off+1440)%1440; if(!$('#f_total').value || $('#f_total')._auto) { $('#f_total').value=fmtHM(b); $('#f_total')._auto=true; } } }
+    if(off!=null&&on!=null){ var b=(on-off+1440)%1440; if(!$('#f_total').value || $('#f_total')._auto) { $('#f_total').value=fmtHM(b); $('#f_total')._auto=true; } } syncLinks(); }
+  function syncLinks(){ var b=parseDur($('#f_total').value);
+    $$('.lnk').forEach(function(cb){ if(cb.checked){ var el=$('#'+cb.getAttribute('data-for')); if(el) el.value=b?fmtHM(b):''; } }); }
   function resolveApt(code){ code=String(code||'').trim().toUpperCase(); if(code.length===3 && window.AIRPORTS_IATA && window.AIRPORTS_IATA[code]) return window.AIRPORTS_IATA[code]; return code; }
   function localClock(icao,dateStr,utcMin){ var A=window.AIRPORTS; if(!A) return null; var info=A[(icao||'').toUpperCase()]; if(!info||!info[1]) return null;
     var d=new Date((dateStr||today())+'T00:00:00Z'); d.setUTCMinutes(d.getUTCMinutes()+utcMin);
@@ -756,8 +801,14 @@
     $('#f_localHint').textContent=p.length?('Local \u00b7 '+p.join('   \u00b7   ')):''; }
   $('#f_off').addEventListener('input',function(){autoBlock();updLocal();}); $('#f_on').addEventListener('input',function(){autoBlock();updLocal();});
   $('#f_date').addEventListener('change',updLocal);
-  $('#f_total').addEventListener('input',function(){ this._auto=false; });
+  $('#f_total').addEventListener('input',function(){ this._auto=false; syncLinks(); });
   $('#f_reg').addEventListener('input',syncAcType);
+  // auto-format duration fields (e.g. "246" -> "2:46") on blur
+  $$('.dur').forEach(function(el){ el.addEventListener('blur',function(){ var v=el.value.trim(); el.value=v?fmtHM(parseDur(v)):''; if(el.id==='f_total') syncLinks(); }); });
+  // "= blk" links: tick to copy BLOCK; typing in the field unlinks it
+  $$('.lnk').forEach(function(cb){ var tgt=$('#'+cb.getAttribute('data-for'));
+    cb.addEventListener('change',function(){ if(cb.checked){ var b=parseDur($('#f_total').value); if(tgt) tgt.value=b?fmtHM(b):''; } });
+    if(tgt) tgt.addEventListener('input',function(){ cb.checked=false; }); });
   ['f_dep','f_arr'].forEach(function(id){ var el=$('#'+id); el.addEventListener('blur',function(){ el.value=resolveApt(el.value); updLocal(); }); });
   $('#tab-add').addEventListener('click',function(){ openFlight(null); });
   $('#fPaste').addEventListener('click',function(){ var last=S.flights[0]; if(!last){ toast('No previous flight'); return; }
@@ -768,16 +819,16 @@
   $('#fSave').addEventListener('click',function(){
     var reg=$('#f_reg').value.trim().toUpperCase(); var a=acByReg(reg);
     var off=parseClock($('#f_off').value), on=parseClock($('#f_on').value);
-    var total=parseHM($('#f_total').value); if(!total && off!=null && on!=null) total=(on-off+1440)%1440;
+    var total=parseDur($('#f_total').value); if(!total && off!=null && on!=null) total=(on-off+1440)%1440;
     var obj={ id:editFid||uid(), _c:(editFid?undefined:Date.now()),
       date:$('#f_date').value||today(), fno:$('#f_fno').value.trim().toUpperCase(),
       reg:reg, acType:a?a.type:'', acClass:a?a.cls:'',
       dep:resolveApt($('#f_dep').value), arr:resolveApt($('#f_arr').value),
       off:off, on:on, total:total,
-      pic:parseHM($('#f_pic').value), sic:parseHM($('#f_sic').value),
-      night:parseHM($('#f_night').value), actual:parseHM($('#f_actual').value), simInst:parseHM($('#f_sim').value), ifr:parseHM($('#f_ifr').value),
-      dual:parseHM($('#f_dual').value), instr:parseHM($('#f_instr').value),
-      picus:parseHM($('#f_picus').value), relief:parseHM($('#f_relief').value),
+      pic:parseDur($('#f_pic').value), sic:parseDur($('#f_sic').value),
+      night:parseDur($('#f_night').value), actual:parseDur($('#f_actual').value), simInst:parseDur($('#f_sim').value), ifr:parseDur($('#f_ifr').value),
+      dual:parseDur($('#f_dual').value), instr:parseDur($('#f_instr').value),
+      picus:parseDur($('#f_picus').value), relief:parseDur($('#f_relief').value),
       picName:$('#f_picname').value.trim(),
       dTo:num($('#f_dto').value), dLdg:num($('#f_dldg').value), nTo:num($('#f_nto').value), nLdg:num($('#f_nldg').value),
       auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:$('#f_task').value,
@@ -808,12 +859,14 @@
   /* ---------- SIM form ---------- */
   var editSid=null;
   function openSim(s){ editSid=s?s.id:null; $('#simTitle').textContent=s?'Edit SIM':'Add SIM session'; $('#simDel').style.display=s?'block':'none';
-    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'Proficiency Check'; $('#s_type').value=s?(s.type||''):''; $('#s_dev').value=s?(s.dev||''):'';
-    $('#s_total').value=s?fmtHM(s.total):''; $('#s_instr').value=s&&s.instr?fmtHM(s.instr):''; $('#s_exam').value=s?(s.exam||''):''; $('#s_res').value=s?(s.res||''):''; $('#s_rem').value=s?(s.rem||''):''; openM('m-sim'); }
+    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'Proficiency Check'; $('#s_type').value=s?(s.type||''):'';
+    $('#s_total').value=s&&s.total?fmtHM(s.total):''; $('#s_instr').value=s&&s.instr?fmtHM(s.instr):''; $('#s_exam').value=s?(s.exam||''):''; $('#s_res').value=s?(s.res||''):''; $('#s_rem').value=s?(s.rem||''):'';
+    $('#s_dto').value=s&&s.dTo?s.dTo:''; $('#s_dldg').value=s&&s.dLdg?s.dLdg:''; $('#s_nto').value=s&&s.nTo?s.nTo:''; $('#s_nldg').value=s&&s.nLdg?s.nLdg:''; openM('m-sim'); }
   $('#addSim').addEventListener('click',function(){ openSim(null); });
   $('#simSave').addEventListener('click',function(){
-    var obj={id:editSid||uid(),_c:(editSid?undefined:Date.now()),date:$('#s_date').value||today(),cat:$('#s_cat').value,type:$('#s_type').value.trim(),dev:$('#s_dev').value.trim(),
-      total:parseHM($('#s_total').value),instr:parseHM($('#s_instr').value),exam:$('#s_exam').value.trim(),res:$('#s_res').value,rem:$('#s_rem').value.trim()};
+    var obj={id:editSid||uid(),_c:(editSid?undefined:Date.now()),date:$('#s_date').value||today(),cat:$('#s_cat').value,type:$('#s_type').value.trim(),
+      total:parseDur($('#s_total').value),instr:parseDur($('#s_instr').value),exam:$('#s_exam').value.trim(),res:$('#s_res').value,rem:$('#s_rem').value.trim(),
+      dTo:num($('#s_dto').value),dLdg:num($('#s_dldg').value),nTo:num($('#s_nto').value),nLdg:num($('#s_nldg').value)};
     if(editSid){ var old=S.sim.filter(function(x){return x.id===editSid;})[0]; if(old) obj._c=old._c; }
     put('sim',obj).then(reload).then(function(){ closeM(); go('sim'); toast(editSid?'Updated':'Session saved'); });
   });
@@ -834,6 +887,7 @@
 
   /* ---------- row click delegation ---------- */
   document.addEventListener('click',function(e){
+    var st=e.target.closest('[data-step]'); if(st){ var se=$('#'+st.getAttribute('data-for')); if(se){ var n=(num(se.value)||0)+parseInt(st.getAttribute('data-step'),10); if(n<0)n=0; se.value=n>0?String(n):''; } return; }
     var sb=e.target.closest('[data-scope]'); if(sb){ dashScope=sb.getAttribute('data-scope'); $$('#dashSeg button').forEach(function(b){ b.classList.toggle('on', b===sb); }); renderDash(); return; }
     var r=e.target.closest('[data-fid]'); if(r){ var f=S.flights.filter(function(x){return x.id===r.getAttribute('data-fid');})[0]; if(f) openFlight(f); return; }
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
@@ -877,8 +931,29 @@
 
   /* ---------- PDF export ---------- */
   var PROFILE_K='logbook_profile';
+  var DEFAULTS_K='logbook_defaults';
+  function loadDefaults(){ try{ return JSON.parse(localStorage.getItem(DEFAULTS_K))||{}; }catch(e){ return {}; } }
+  (function initDefaults(){ var d=loadDefaults(); if($('#d_fnoPfx'))$('#d_fnoPfx').value=d.fnoPfx||''; if($('#d_regPfx'))$('#d_regPfx').value=d.regPfx||'';
+    ['d_fnoPfx','d_regPfx'].forEach(function(id){ var el=$('#'+id); if(el) el.addEventListener('input',function(){
+      try{ localStorage.setItem(DEFAULTS_K, JSON.stringify({fnoPfx:($('#d_fnoPfx').value||'').trim().toUpperCase(), regPfx:($('#d_regPfx').value||'').trim().toUpperCase()})); }catch(e){} }); });
+  })();
   function loadProfile(){ try{ return JSON.parse(localStorage.getItem(PROFILE_K))||{}; }catch(e){ return {}; } }
-  function curProfile(){ return {name:($('#p_name')?$('#p_name').value.trim():''), lic:($('#p_lic')?$('#p_lic').value.trim():'')}; }
+  function curProfile(){ var st=loadProfile(); return {name:($('#p_name')?$('#p_name').value.trim():(st.name||'')), lic:($('#p_lic')?$('#p_lic').value.trim():(st.lic||'')), sig:st.sig||''}; }
+  (function initSig(){
+    var cv=$('#p_sig'); if(!cv) return; var ctx=null; try{ ctx=cv.getContext('2d'); }catch(e){}; if(!ctx) return;
+    function base(){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1320'; }
+    base();
+    var pr=loadProfile(); if(pr.sig){ try{ var im=new Image(); im.onload=function(){ try{ ctx.drawImage(im,0,0,cv.width,cv.height); }catch(e){} }; im.src=pr.sig; $('#p_sigSaved').textContent='Saved signature loaded'; }catch(e){} }
+    var drawing=false, last=null, dirty=false;
+    function pos(e){ var r=cv.getBoundingClientRect(); var t=(e.touches&&e.touches[0])?e.touches[0]:e; return {x:(t.clientX-r.left)*(cv.width/r.width), y:(t.clientY-r.top)*(cv.height/r.height)}; }
+    function start(e){ e.preventDefault(); drawing=true; last=pos(e); }
+    function move(e){ if(!drawing) return; e.preventDefault(); var p2=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); last=p2; dirty=true; }
+    function save(){ try{ var p=loadProfile(); p.sig=cv.toDataURL('image/png'); localStorage.setItem(PROFILE_K, JSON.stringify(p)); $('#p_sigSaved').textContent='Signature saved'; }catch(e){} }
+    function end(){ if(!drawing) return; drawing=false; if(dirty) save(); }
+    cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+    cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
+    $('#p_sigClear').addEventListener('click',function(){ base(); dirty=false; try{ var p=loadProfile(); delete p.sig; localStorage.setItem(PROFILE_K, JSON.stringify(p)); }catch(e){} $('#p_sigSaved').textContent='Signature cleared'; });
+  })();
   (function initPdf(){
     var p=loadProfile(); if($('#p_name')) $('#p_name').value=p.name||''; if($('#p_lic')) $('#p_lic').value=p.lic||'';
     ['p_name','p_lic'].forEach(function(id){ var el=$('#'+id); if(el) el.addEventListener('input',function(){ try{ localStorage.setItem(PROFILE_K, JSON.stringify(curProfile())); }catch(e){} }); });
@@ -904,6 +979,7 @@
     return {header:split(lines[0]),rows:lines.slice(1).map(split)};
   }
   function fsig(f){ return [f.date,f.fno,f.dep,f.arr,f.total].join('|'); }
+  function ssig(s){ return [s.date,s.type,s.total,s.instr].join('|'); }
   function importPilotlog(text){
     var p=parseDelimited(text); var idx={}; p.header.forEach(function(h,i){ idx[h.trim()]=i; });
     if(!('PILOTLOG_DATE' in idx)) return {error:'Not a CrewLounge PILOTLOG flights CSV'};
@@ -911,16 +987,30 @@
     var mins=function(r,n){ var v=get(r,n); if(!v) return 0; var k=parseInt(v,10); return isNaN(k)?0:k; };
     var TR=function(r,n){ return get(r,n).toUpperCase()==='TRUE'; };
     var existing={}; S.flights.forEach(function(f){ existing[fsig(f)]=f; });
+    var existingSim={}; S.sim.forEach(function(s){ existingSim[ssig(s)]=s; });
     var acByRegMap={}; S.aircraft.forEach(function(a){ acByRegMap[(a.reg||'').toUpperCase()]=a; });
-    var flights=[], sims=[], newAc=[], updates=[], skipped=0, c0=Date.now();
+    var flights=[], sims=[], newAc=[], updates=[], simUpdates=[], skipped=0, c0=Date.now();
     p.rows.forEach(function(r,n){
       if(!get(r,'PILOTLOG_DATE')) return;
       var date=get(r,'PILOTLOG_DATE');
       var model=get(r,'AC_MODEL')||get(r,'AC_MAKE'); var variant=get(r,'AC_VARIANT');
       var type=(model+(variant?('-'+variant):'')).trim();
+      var apTok=get(r,'TAG_APP').split('|').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
       if(TR(r,'AC_ISSIM')){
-        sims.push({id:uid(),_c:c0+n,date:date,cat:'',type:type,dev:'',
-          total:mins(r,'TIME_TOTAL')||mins(r,'TIME_TOTALSIM'),instr:mins(r,'TIME_ACTUAL')||mins(r,'TIME_IFR'),exam:'',res:'',rem:get(r,'REMARKS')});
+        var s={id:uid(),_c:c0+n,date:date,cat:'',type:type,dev:'',
+          total:mins(r,'TIME_TOTAL')||mins(r,'TIME_TOTALSIM'),instr:mins(r,'TIME_ACTUAL')||mins(r,'TIME_IFR'),exam:'',res:'',rem:get(r,'REMARKS'),
+          dTo:mins(r,'TO_DAY'), nTo:mins(r,'TO_NIGHT'), dLdg:mins(r,'LDG_DAY'), nLdg:mins(r,'LDG_NIGHT'),
+          auto:apTok.filter(function(x){return x==='AL';}).length};
+        var exs=existingSim[ssig(s)];
+        if(exs){
+          var needLdg = (exs.dLdg==null && exs.nLdg==null) && (((s.dTo||0)+(s.nTo||0)+(s.dLdg||0)+(s.nLdg||0))>0);
+          var needRem = exs.rem && exs.rem.indexOf('\uFFFD')>=0 && s.rem && s.rem!==exs.rem;
+          if(needLdg || needRem){ var us={}; for(var kk in exs) us[kk]=exs[kk];
+            if(needLdg){ us.dTo=s.dTo; us.nTo=s.nTo; us.dLdg=s.dLdg; us.nLdg=s.nLdg; us.auto=s.auto; }
+            if(needRem){ us.rem=s.rem; } simUpdates.push(us); }
+          skipped++; return;
+        }
+        existingSim[ssig(s)]=s; sims.push(s);
         return;
       }
       var reg=get(r,'AC_REG').toUpperCase();
@@ -930,7 +1020,6 @@
       var cls=mp?('Multi-pilot '+engine):(single?('Single-engine '+engine):('Multi-engine '+engine));
       if(reg && !acByRegMap[reg]){ var a={id:uid(),reg:reg,type:type,cls:cls,engine:engine,multi:mp,rem:'imported'}; acByRegMap[reg]=a; newAc.push(a); }
       var pf=get(r,'PF').toUpperCase();
-      var apTok=get(r,'TAG_APP').split('|').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
       var f={ id:uid(), _c:c0+n, date:date, fno:get(r,'FLIGHTNUMBER').toUpperCase(),
         reg:reg, acType:type, acClass:cls, acMulti:mp,
         dep:resolveApt(get(r,'AF_DEP')), arr:resolveApt(get(r,'AF_ARR')),
@@ -948,7 +1037,7 @@
       if(ex){ if(ex.rem && ex.rem.indexOf('\uFFFD')>=0 && f.rem && f.rem!==ex.rem){ var u={}; for(var kk in ex) u[kk]=ex[kk]; u.rem=f.rem; updates.push(u); } skipped++; return; }
       flights.push(f);
     });
-    return {flights:flights,sims:sims,newAc:newAc,updates:updates,skipped:skipped};
+    return {flights:flights,sims:sims,newAc:newAc,updates:updates,simUpdates:simUpdates,skipped:skipped};
   }
   function bulkWrite(items){ return new Promise(function(res,rej){
     if(!items.length) return res();
@@ -970,10 +1059,10 @@
       var text; try{ text=decodeCsv(rd.result); }catch(e0){ text=null; }
       var res; try{ res=importPilotlog(String(text||'')); }catch(err){ console.error(err); toast('Import failed'); return; }
       if(res.error){ toast(res.error); return; }
-      var nUpd=(res.updates||[]).length;
+      var nUpd=(res.updates||[]).length + (res.simUpdates||[]).length;
       if(!(res.flights.length+res.sims.length+nUpd)){ toast('Nothing new ('+res.skipped+' duplicates)'); return; }
       var msg='Import '+res.flights.length+' flights, '+res.sims.length+' sim sessions, '+res.newAc.length+' aircraft?';
-      if(nUpd) msg+='\nAlso repair '+nUpd+' garbled remarks.';
+      if(nUpd) msg+='\nAlso refresh '+nUpd+' existing records (remarks / sim landings).';
       msg+='\n('+res.skipped+' duplicates skipped)';
       if(!confirm(msg)) return;
       var items=[];
@@ -981,6 +1070,7 @@
       res.flights.forEach(function(f){ items.push({store:'flights',obj:f}); });
       (res.updates||[]).forEach(function(f){ items.push({store:'flights',obj:f}); });
       res.sims.forEach(function(s){ items.push({store:'sim',obj:s}); });
+      (res.simUpdates||[]).forEach(function(s){ items.push({store:'sim',obj:s}); });
       bulkWrite(items).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' · repaired '+nUpd); })
         .catch(function(err){ console.error(err); toast('Import write failed'); });
     }; rd.readAsArrayBuffer(file); e.target.value='';
