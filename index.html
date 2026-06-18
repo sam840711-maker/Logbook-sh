@@ -374,6 +374,11 @@
         <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
         <div id="acList"></div>
       </div>
+      <div class="section-head acsec" id="devHead"><h2>SIM devices <span class="cnt" id="devCount">(0)</span></h2><span class="chev" id="devChev">&#9656;</span><button class="add" id="addDev">+ Device</button></div>
+      <div id="devWrap" class="collapse">
+        <input class="fld" id="devSearch" placeholder="Search type or device name..." style="margin-bottom:10px">
+        <div id="devList"></div>
+      </div>
       <div class="section-head"><h2>Licences · Medical · Recency</h2><button class="add" id="addCred">+ Item</button></div>
       <div id="credList"></div>
       <div class="section-head"><h2>Entry defaults</h2></div>
@@ -515,6 +520,21 @@
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="acSave">Save</button></div>
 </div></div>
 
+<div class="modal" id="m-dev"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3 id="devTitle">Add SIM device</h3><button class="del" id="devDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <div class="frow c2">
+      <div class="fgroup"><label>Aircraft type</label><input class="fld" id="v_type" list="acTypeDatalist" placeholder="e.g. B737-800" autocapitalize="characters"><datalist id="acTypeDatalist"></datalist></div>
+      <div class="fgroup"><label>Device name</label><input class="fld" id="v_name" placeholder="e.g. FFS-2 (optional)"></div>
+    </div>
+    <div class="fgroup"><label>FSTD level</label>
+      <select class="fld" id="v_level"><option value="">—</option><option>FFS Level D</option><option>FFS Level C</option><option>FFS Level B</option><option>FFS Level A</option><option>FTD</option><option>FNPT</option><option>Other</option></select></div>
+    <div class="fgroup"><label>Remarks</label><input class="fld" id="v_rem" placeholder="Operator / location (optional)"></div>
+    <div class="fhint">Registered devices appear in the SIM session "Device" picker; the type flows into the FSTD column of your PDF logbook.</div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="devSave">Save</button></div>
+</div></div>
+
 <div class="modal" id="m-sim"><div class="scrim" data-close></div><div class="sheet">
   <div class="sheet-head"><h3 id="simTitle">Add SIM session</h3><button class="del" id="simDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
@@ -523,7 +543,7 @@
       <div class="fgroup"><label>Category</label>
         <select class="fld" id="s_cat"><option>Proficiency Check</option><option>OPC</option><option>LPC</option><option>Training</option><option>Initial / Conversion</option><option>Other</option></select></div>
     </div>
-    <div class="fgroup"><label>Type / device</label><input class="fld" id="s_type" placeholder="A321 FFS"></div>
+    <div class="fgroup"><label>Device</label><select class="fld" id="s_dev"></select><div class="fhint" id="s_devHint" style="margin-top:4px"></div></div>
     <div class="frow c2">
       <div class="fgroup"><label>Session time</label><input class="fld mono dur" id="s_total" placeholder="4:00"></div>
       <div class="fgroup"><label>Instrument time</label><input class="fld mono dur" id="s_instr" placeholder="0:00"></div>
@@ -626,7 +646,7 @@
   function daysBetween(a,b){ return Math.round((a-b)/86400000); }
 
   /* ---------- DB ---------- */
-  var DB=null, DBNAME='pilot_logbook', VER=1, STORES=['flights','aircraft','sim','credentials'];
+  var DB=null, DBNAME='pilot_logbook', VER=2, STORES=['flights','aircraft','sim','credentials','simdevices'];
   function openDB(){ return new Promise(function(res,rej){
     var rq=indexedDB.open(DBNAME,VER);
     rq.onupgradeneeded=function(e){ var db=e.target.result;
@@ -641,8 +661,8 @@
   function clearStore(store){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').clear(); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);}; }); }
 
   /* ---------- state ---------- */
-  var S={flights:[],aircraft:[],sim:[],credentials:[]};
-  function reload(){ return Promise.all(STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3];
+  var S={flights:[],aircraft:[],sim:[],credentials:[],simdevices:[]};
+  function reload(){ return Promise.all(STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[];
     S.flights.sort(byDateDesc); S.sim.sort(byDateDesc); }); }
   function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||'') || (b._c||0)-(a._c||0); }
 
@@ -762,7 +782,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4j · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4l · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -947,8 +967,22 @@
       }).join('');
     }).join('');
   }
+  function renderDevList(){
+    $('#devCount').textContent='('+S.simdevices.length+')';
+    var el=$('#devList');
+    if(!S.simdevices.length){ el.innerHTML='<div class="empty"><b>No SIM devices</b>Register a device to pick it when logging a SIM session.</div>'; return; }
+    var q=($('#devSearch')?$('#devSearch').value:'').trim().toUpperCase();
+    var list=S.simdevices.filter(function(v){ if(!q) return true; return (v.type||'').toUpperCase().indexOf(q)>=0 || (v.name||'').toUpperCase().indexOf(q)>=0; });
+    if(!list.length){ el.innerHTML='<div class="empty" style="margin-top:6px"><b>No match</b>Try a different type or name.</div>'; return; }
+    list=list.slice().sort(function(a,b){ return (a.type||'').localeCompare(b.type||'')||(a.name||'').localeCompare(b.name||''); });
+    el.innerHTML=list.map(function(v){
+      return '<div class="row" data-did="'+v.id+'"><div class="main"><div class="t mono">'+esc(v.type||'')+'</div>'+
+        '<div class="s">'+esc([v.name,v.level].filter(Boolean).join(' \u00b7 ')||'SIM device')+'</div></div></div>';
+    }).join('');
+  }
   function renderMore(){
     renderAcList();
+    renderDevList();
 
     var cl=$('#credList');
     cl.innerHTML = S.credentials.length ? S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');}).map(function(c){
@@ -966,6 +1000,32 @@
   /* ---------- FLIGHT form ---------- */
   var editFid=null;
   function refreshAcDatalist(){ $('#acDatalist').innerHTML=S.aircraft.map(function(a){return '<option value="'+esc(a.reg)+'">'+esc(a.type||'')+'</option>';}).join(''); }
+  function distinctTypes(){
+    var seen={}, out=[];
+    function add(t){ t=(t||'').trim(); if(t && !seen[t.toUpperCase()]){ seen[t.toUpperCase()]=1; out.push(t); } }
+    S.aircraft.forEach(function(a){ add(a.type); });
+    S.simdevices.forEach(function(v){ add(v.type); });
+    S.sim.forEach(function(s){ add(s.type); });
+    out.sort(function(a,b){ return a.localeCompare(b); });
+    return out;
+  }
+  function refreshAcTypeDatalist(){ var el=$('#acTypeDatalist'); if(el) el.innerHTML=distinctTypes().map(function(t){return '<option value="'+esc(t)+'"></option>';}).join(''); }
+  function devLabel(v){ return (v.type||'(no type)')+(v.name?(' \u00b7 '+v.name):'')+(v.level?(' \u00b7 '+v.level):''); }
+  function fillSimDevSelect(selDevId, legacyType){
+    var devs=S.simdevices.slice().sort(function(a,b){ return (a.type||'').localeCompare(b.type||'')||(a.name||'').localeCompare(b.name||''); });
+    var html='<option value="">\u2014 Select device \u2014</option>';
+    html+=devs.map(function(v){ return '<option value="'+esc(v.id)+'">'+esc(devLabel(v))+'</option>'; }).join('');
+    var matched = selDevId && devs.some(function(v){ return v.id===selDevId; });
+    var lt=(legacyType||'').trim();
+    var legacyMatchDev = lt && devs.filter(function(v){ return (v.type||'').toUpperCase()===lt.toUpperCase(); })[0];
+    if(!matched && lt && !legacyMatchDev){ html+='<option value="legacy:'+esc(lt)+'">'+esc(lt)+' (unregistered)</option>'; }
+    var sel=$('#s_dev'); sel.innerHTML=html;
+    if(matched) sel.value=selDevId;
+    else if(legacyMatchDev) sel.value=legacyMatchDev.id;
+    else if(lt) sel.value='legacy:'+lt;
+    else sel.value='';
+    var hint=$('#s_devHint'); if(hint) hint.textContent = devs.length ? '' : 'No SIM devices yet \u2014 add one in More \u25b8 SIM devices.';
+  }
   function acByReg(reg){ reg=(reg||'').trim().toUpperCase(); for(var i=0;i<S.aircraft.length;i++){ if((S.aircraft[i].reg||'').toUpperCase()===reg) return S.aircraft[i]; } return null; }
   function fillFlight(f){
     var g=function(id){return $('#'+id);};
@@ -1139,15 +1199,34 @@
   $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('Delete this aircraft?')) return;
     del('aircraft',editAid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
 
+  /* ---------- SIM DEVICE form ---------- */
+  var editVid=null;
+  function openDev(v){ editVid=v?v.id:null; refreshAcTypeDatalist(); $('#devTitle').textContent=v?'Edit SIM device':'Add SIM device'; $('#devDel').style.display=v?'block':'none';
+    $('#v_type').value=v?(v.type||''):''; $('#v_name').value=v?(v.name||''):''; $('#v_level').value=v?(v.level||''):''; $('#v_rem').value=v?(v.rem||''):''; openM('m-dev'); }
+  $('#addDev').addEventListener('click',function(e){ e.stopPropagation(); openDev(null); });
+  function toggleDev(open){ var w=$('#devWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#devChev').classList.toggle('down',willOpen); }
+  $('#devHead').addEventListener('click',function(e){ if(e.target.closest('#addDev')) return; toggleDev(); });
+  $('#devSearch').addEventListener('input',function(){ if(this.value.trim()) toggleDev(true); renderDevList(); });
+  $('#devSave').addEventListener('click',function(){
+    var type=$('#v_type').value.trim().toUpperCase(); if(!type){ toast('Enter an aircraft type'); return; }
+    var obj={id:editVid||uid(),type:type,name:$('#v_name').value.trim(),level:$('#v_level').value,rem:$('#v_rem').value.trim()};
+    put('simdevices',obj).then(reload).then(function(){ closeM(); go('more'); toast(editVid?'Updated':'Device saved'); });
+  });
+  $('#devDel').addEventListener('click',function(){ if(!editVid) return; if(!confirm('Delete this SIM device?')) return;
+    del('simdevices',editVid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
+
   /* ---------- SIM form ---------- */
   var editSid=null;
   function openSim(s){ editSid=s?s.id:null; $('#simTitle').textContent=s?'Edit SIM':'Add SIM session'; $('#simDel').style.display=s?'block':'none';
-    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'Proficiency Check'; $('#s_type').value=s?(s.type||''):'';
+    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'Proficiency Check'; fillSimDevSelect(s?s.dev:'', s?s.type:'');
     $('#s_total').value=s&&s.total?fmtHM(s.total):''; $('#s_instr').value=s&&s.instr?fmtHM(s.instr):''; $('#s_exam').value=s?(s.exam||''):''; $('#s_res').value=s?(s.res||''):''; $('#s_rem').value=s?(s.rem||''):'';
     $('#s_dto').value=s&&s.dTo?s.dTo:''; $('#s_dldg').value=s&&s.dLdg?s.dLdg:''; $('#s_nto').value=s&&s.nTo?s.nTo:''; $('#s_nldg').value=s&&s.nLdg?s.nLdg:''; openM('m-sim'); }
   $('#addSim').addEventListener('click',function(){ openSim(null); });
   $('#simSave').addEventListener('click',function(){
-    var obj={id:editSid||uid(),_c:(editSid?undefined:Date.now()),date:$('#s_date').value||today(),cat:$('#s_cat').value,type:$('#s_type').value.trim(),
+    var dv=$('#s_dev').value, devType='', devId='';
+    if(dv.indexOf('legacy:')===0){ devType=dv.slice(7); devId=''; }
+    else if(dv){ var vv=S.simdevices.filter(function(x){return x.id===dv;})[0]; if(vv){ devType=vv.type||''; devId=vv.id; } }
+    var obj={id:editSid||uid(),_c:(editSid?undefined:Date.now()),date:$('#s_date').value||today(),cat:$('#s_cat').value,type:devType,dev:devId,
       total:parseDur($('#s_total').value),instr:parseDur($('#s_instr').value),exam:$('#s_exam').value.trim(),res:$('#s_res').value,rem:$('#s_rem').value.trim(),
       dTo:num($('#s_dto').value),dLdg:num($('#s_dldg').value),nTo:num($('#s_nto').value),nLdg:num($('#s_nldg').value)};
     if(editSid){ var old=S.sim.filter(function(x){return x.id===editSid;})[0]; if(old) obj._c=old._c; }
@@ -1175,6 +1254,7 @@
     var r=e.target.closest('[data-fid]'); if(r){ var fid=r.getAttribute('data-fid'); if(selMode){ toggleSel(fid); return; } var f=S.flights.filter(function(x){return x.id===fid;})[0]; if(f) openFlight(f); return; }
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
+    var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
     var cr=e.target.closest('[data-cid]'); if(cr){ var c=S.credentials.filter(function(x){return x.id===cr.getAttribute('data-cid');})[0]; if(c) openCred(c); return; }
     var gb=e.target.closest('[data-go]'); if(gb){ go(gb.getAttribute('data-go')); }
   });
