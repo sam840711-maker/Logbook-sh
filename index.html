@@ -789,7 +789,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4p · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4q · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -1218,8 +1218,8 @@
   $('#devSearch').addEventListener('input',function(){ if(this.value.trim()) toggleDev(true); renderDevList(); });
   function toggleLogf(open){ var w=$('#logfWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#logfChev').classList.toggle('down',willOpen); }
   function toggleSimf(open){ var w=$('#simfWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#simfChev').classList.toggle('down',willOpen); }
-  $('#logfHead').addEventListener('click',toggleLogf);
-  $('#simfHead').addEventListener('click',toggleSimf);
+  $('#logfHead').addEventListener('click',function(){ toggleLogf(); });
+  $('#simfHead').addEventListener('click',function(){ toggleSimf(); });
   $('#devSave').addEventListener('click',function(){
     var type=$('#v_type').value.trim().toUpperCase(); if(!type){ toast('Enter an aircraft type'); return; }
     var obj={id:editVid||uid(),type:type,name:$('#v_name').value.trim(),level:$('#v_level').value,rem:$('#v_rem').value.trim()};
