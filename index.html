@@ -192,6 +192,38 @@
   .filebtn{position:relative; overflow:hidden}
   .filebtn input{position:absolute; inset:0; opacity:0; cursor:pointer}
   .appfoot{text-align:center; color:var(--ink-faint); font-size:11px; padding:22px 0 8px; font-family:var(--mono)}
+  .seg{display:flex; gap:4px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:10px; padding:3px; margin-bottom:12px}
+  .seg button{flex:1; height:34px; border-radius:8px; color:var(--ink-dim); font-size:13px}
+  .seg button.on{background:var(--cyan); color:#04161b; font-weight:600}
+  .gt{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+  .gt .cell{background:var(--panel); border:1px solid var(--line-soft); border-radius:10px; padding:11px 12px}
+  .gt .cell .k{font-size:10px; letter-spacing:.1em; color:var(--ink-faint); text-transform:uppercase}
+  .gt .cell .n{font-size:11px; color:var(--ink-dim); margin-top:2px}
+  .gt .cell .v{font-family:var(--mono); font-size:18px; margin-top:2px}
+  .gt .cell.ac .v{color:var(--cyan)} .gt .cell.sim .v{color:#b48ee8} .gt .cell.tot .v{color:var(--white)}
+  .bars{margin-bottom:2px}
+  .bar{display:grid; grid-template-columns:104px 1fr 60px; align-items:center; gap:8px; padding:5px 2px}
+  .bar .bl{font-size:12px; color:var(--ink-dim)}
+  .bar .bt{height:8px; background:var(--line-soft); border-radius:99px; overflow:hidden}
+  .bar .bf{height:100%; background:var(--cyan); border-radius:99px; transition:width .3s}
+  .bar .bf.amber{background:var(--amber)} .bar .bf.violet{background:#b48ee8} .bar .bf.green{background:var(--green)}
+  .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){.bar .bf{transition:none}}
+  .fcard{display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:center; background:var(--panel);
+    border:1px solid var(--line-soft); border-left:3px solid var(--cyan-dim); border-radius:10px; padding:10px 12px; margin-bottom:7px; cursor:pointer}
+  .fcard:active{background:#18242c}
+  .fcard.sim{border-left-color:#7d5bb0}
+  .fcard .d{text-align:center; line-height:1.05}
+  .fcard .d .dd{font-family:var(--mono); font-size:18px; color:var(--white)}
+  .fcard .d .dm{font-size:9px; color:var(--ink-faint); text-transform:uppercase}
+  .fcard .mid{min-width:0}
+  .fcard .mid .fn{font-family:var(--mono); color:var(--cyan); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .fcard.sim .mid .fn{color:#b48ee8}
+  .fcard .mid .ac{font-size:11.5px; color:var(--ink-dim); margin-top:1px}
+  .fcard .rt{text-align:right; font-family:var(--mono)}
+  .fcard .rt .rr{font-size:12.5px; color:var(--ink)}
+  .fcard .rt .du{font-size:12.5px; color:var(--cyan); margin-top:1px}
+  .fcard.sim .rt .du{color:#b48ee8}
 </style>
 </head>
 <body>
@@ -208,18 +240,29 @@
   <main>
     <!-- DASHBOARD -->
     <section class="view active" id="view-dash">
-      <p class="eyebrow">Total flight time</p>
-      <div class="cluster">
-        <div class="label">누적 비행시간 · BLOCK</div>
-        <div class="total mono" id="dashTotal">0:00</div>
-        <div class="sub"><b id="dashFlights">0</b> 비행 · <b id="dashLdg">0</b> 착륙 · 평균 <b id="dashAvg">0:00</b>/leg</div>
+      <p class="eyebrow">My total time</p>
+      <div class="seg" id="dashSeg">
+        <button data-scope="all" class="on">All</button>
+        <button data-scope="ac">Aircraft</button>
+        <button data-scope="sim">Simulator</button>
       </div>
-      <div class="grid" id="dashGrid"></div>
-
-      <div class="section-head"><h2>리커런시 &amp; 자격</h2></div>
+      <div class="gt" id="dashGrand"></div>
+      <div class="cluster" style="margin-top:8px">
+        <div class="label" id="dashClabel">Total · BLOCK</div>
+        <div class="total mono" id="dashTotal">0:00</div>
+        <div class="sub"><b id="dashFlights">0</b> flights · <b id="dashLdg">0</b> landings · avg <b id="dashAvg">0:00</b>/leg</div>
+      </div>
+      <div class="section-head"><h2>Function</h2></div>
+      <div class="bars" id="dashFunc"></div>
+      <div class="section-head"><h2>Flight condition</h2></div>
+      <div class="bars" id="dashCond"></div>
+      <div class="section-head"><h2>Currencies</h2></div>
+      <div class="bars" id="dashCurr"></div>
+      <div class="section-head"><h2>Aircraft model</h2></div>
+      <div class="bars" id="dashModel"></div>
+      <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
-
-      <div class="section-head"><h2>최근 비행</h2><button class="add" data-go="log">전체 보기</button></div>
+      <div class="section-head"><h2>Recent flights</h2><button class="add" data-go="log">View all</button></div>
       <div id="dashRecent"></div>
       <div class="appfoot" id="appfoot"></div>
     </section>
@@ -227,195 +270,197 @@
     <!-- LOGBOOK -->
     <section class="view" id="view-log">
       <p class="eyebrow">Logbook</p>
-      <div class="ledger-wrap"><div class="ledger-scroll">
-        <table class="ledger">
-          <thead><tr>
-            <th class="l">DATE</th><th class="l">FLT</th><th class="l">ROUTE</th><th>A/C</th>
-            <th>BLOCK</th><th>PIC</th><th>SIC</th><th>NIGHT</th><th>IFR</th><th>LDG</th><th>A/L</th>
-          </tr></thead>
-          <tbody id="logBody"></tbody>
-          <tfoot id="logFoot"></tfoot>
-        </table>
-      </div></div>
+      <div class="gt" id="logTotals" style="grid-template-columns:1fr 1fr; margin-bottom:12px"></div>
+      <div id="logList"></div>
       <div id="logEmpty"></div>
     </section>
 
     <!-- SIM -->
     <section class="view" id="view-sim">
       <p class="eyebrow">Simulator &amp; Checks</p>
-      <div class="section-head"><h2>심 평가 · 세션</h2><button class="add" id="addSim">+ 세션</button></div>
+      <div class="section-head"><h2>Checks & sessions</h2><button class="add" id="addSim">+ Session</button></div>
       <div id="simList"></div>
     </section>
 
     <!-- MORE -->
     <section class="view" id="view-more">
       <p class="eyebrow">Manage</p>
-      <div class="section-head"><h2>보유 기재</h2><button class="add" id="addAc">+ 기재</button></div>
+      <div class="section-head"><h2>Aircraft</h2><button class="add" id="addAc">+ Aircraft</button></div>
       <div id="acList"></div>
-      <div class="section-head"><h2>자격 · 메디컬 · 리커런시</h2><button class="add" id="addCred">+ 항목</button></div>
+      <div class="section-head"><h2>Licences · Medical · Recency</h2><button class="add" id="addCred">+ Item</button></div>
       <div id="credList"></div>
-      <div class="section-head"><h2>PDF 로그북 출력</h2></div>
+      <div class="section-head"><h2>PDF logbook export</h2></div>
       <div class="frow c2">
-        <div class="fgroup" style="margin-bottom:8px"><label>조종사 이름 (영문)</label><input class="fld" id="p_name" placeholder="SH LEE"></div>
-        <div class="fgroup" style="margin-bottom:8px"><label>라이선스 번호</label><input class="fld" id="p_lic" placeholder="KR-ATPL-..."></div>
+        <div class="fgroup" style="margin-bottom:8px"><label>Pilot name</label><input class="fld" id="p_name" placeholder="SH LEE"></div>
+        <div class="fgroup" style="margin-bottom:8px"><label>Licence number</label><input class="fld" id="p_lic" placeholder="KR-ATPL-..."></div>
       </div>
       <div class="miscbtns3">
         <button class="btn ghost sm" data-pdf="EASA">EASA</button>
         <button class="btn ghost sm" data-pdf="FAA">FAA</button>
         <button class="btn ghost sm" data-pdf="GCAA">GCAA</button>
       </div>
-      <div class="fhint" style="margin-top:8px">국제 제출 표준에 맞춰 영문으로 출력됩니다(한글 비고는 표시되지 않을 수 있음). 원장 + 기종별/시뮬레이터 요약 + 증명·서명란 포함. GCAA는 라이선스 총계 대조 안내가 추가됩니다.</div>
+      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. GCAA adds a licence-total reconciliation note.</div>
 
-      <div class="section-head"><h2>데이터</h2></div>
+      <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
-        <button class="btn ghost sm" id="expJson">JSON 백업</button>
-        <button class="btn ghost sm filebtn">JSON 복원<input type="file" id="impJson" accept=".json,application/json"></button>
-        <button class="btn ghost sm" id="expCsv">CSV 내보내기</button>
-        <button class="btn danger sm" id="wipe">전체 삭제</button>
+        <button class="btn ghost sm" id="expJson">JSON backup</button>
+        <button class="btn ghost sm filebtn">JSON restore<input type="file" id="impJson" accept=".json,application/json"></button>
+        <button class="btn ghost sm" id="expCsv">CSV export</button>
+        <button class="btn danger sm" id="wipe">Delete all</button>
       </div>
-      <div class="fhint" style="margin-top:10px">EASA/FAA/GCAA PDF 출력은 다음 단계(v0.3)에서 추가됩니다. 데이터 모델은 이미 GCAA 호환(autoland·접근 분류 포함) 구조입니다.</div>
+      <button class="btn ghost sm filebtn" id="impPilotlogBtn" style="margin-top:10px; width:100%">Import CrewLounge PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
+      <div class="fhint" style="margin-top:10px">Data is stored only on this device (IndexedDB). Back up to JSON regularly; restore replaces all current data. PILOTLOG import adds flights, sim sessions and aircraft, skipping duplicates.</div>
     </section>
   </main>
 
   <nav class="tabs">
     <button data-view="dash" class="on" id="tab-dash">
-      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/></svg>대시보드</button>
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/></svg>Dashboard</button>
     <button data-view="log" id="tab-log">
-      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>로그북</button>
+      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>Logbook</button>
     <button class="fab" id="tab-add">
-      <span class="ring"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>비행</button>
+      <span class="ring"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>Flight</button>
     <button data-view="sim" id="tab-sim">
       <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>SIM</button>
     <button data-view="more" id="tab-more">
-      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>더보기</button>
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>
   </nav>
 </div>
 
 <!-- ========= MODALS ========= -->
 <div class="modal" id="m-flight"><div class="scrim" data-close></div><div class="sheet">
-  <div class="sheet-head"><h3 id="fTitle">비행 추가</h3><button class="del" id="fDel" style="display:none">삭제</button><button class="x" data-close>&times;</button></div>
+  <div class="sheet-head"><h3 id="fTitle">Add flight</h3><button class="del" id="fDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
+    <button class="btn ghost sm" id="fPaste" style="margin-bottom:14px">Paste from last flight</button>
     <div class="frow c2">
-      <div class="fgroup"><label>날짜 (UTC)</label><input type="date" class="fld" id="f_date"></div>
-      <div class="fgroup"><label>편명</label><input class="fld" id="f_fno" placeholder="예: KE085" autocapitalize="characters"></div>
+      <div class="fgroup"><label>Date (UTC)</label><input type="date" class="fld" id="f_date"></div>
+      <div class="fgroup"><label>Flight no.</label><input class="fld" id="f_fno" placeholder="e.g. KE085" autocapitalize="characters"></div>
     </div>
-    <div class="fgroup"><label>등록기호 / 기재</label>
-      <input class="fld" id="f_reg" list="acDatalist" placeholder="예: HL8888" autocapitalize="characters">
+    <div class="fgroup"><label>Registration / aircraft</label>
+      <input class="fld" id="f_reg" list="acDatalist" placeholder="e.g. HL8888" autocapitalize="characters">
       <datalist id="acDatalist"></datalist>
       <div class="fhint" id="f_acType"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>출발 (ICAO)</label><input class="fld" id="f_dep" placeholder="RKSI" autocapitalize="characters" maxlength="4"></div>
-      <div class="fgroup"><label>도착 (ICAO)</label><input class="fld" id="f_arr" placeholder="OMDB" autocapitalize="characters" maxlength="4"></div>
+      <div class="fgroup"><label>From (ICAO/IATA)</label><input class="fld" id="f_dep" placeholder="RKSI" autocapitalize="characters" maxlength="4"></div>
+      <div class="fgroup"><label>To (ICAO/IATA)</label><input class="fld" id="f_arr" placeholder="OMDB" autocapitalize="characters" maxlength="4"></div>
     </div>
     <div class="frow c3">
       <div class="fgroup"><label>OUT (UTC)</label><input class="fld mono" id="f_off" inputmode="numeric" placeholder="0830"></div>
       <div class="fgroup"><label>IN (UTC)</label><input class="fld mono" id="f_on" inputmode="numeric" placeholder="1745"></div>
-      <div class="fgroup"><label>BLOCK</label><input class="fld mono" id="f_total" placeholder="자동"></div>
+      <div class="fgroup"><label>BLOCK</label><input class="fld mono" id="f_total" placeholder="auto"></div>
     </div>
+    <div class="fhint" id="f_localHint" style="margin-top:-6px"></div>
 
-    <div class="fdiv"></div><p class="fsub">Function · 시간</p>
+    <div class="fdiv"></div><p class="fsub">Function · time</p>
     <div class="frow c2">
       <div class="fgroup"><label>PIC</label><input class="fld mono" id="f_pic" placeholder="0:00"></div>
-      <div class="fgroup"><label>SIC (부조종사)</label><input class="fld mono" id="f_sic" placeholder="0:00"></div>
+      <div class="fgroup"><label>SIC (co-pilot)</label><input class="fld mono" id="f_sic" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>NIGHT (수동)</label><input class="fld mono" id="f_night" placeholder="0:00"></div>
-      <div class="fgroup"><label>IFR / 계기</label><input class="fld mono" id="f_ifr" placeholder="0:00"></div>
+      <div class="fgroup"><label>NIGHT (manual)</label><input class="fld mono" id="f_night" placeholder="0:00"></div>
+      <div class="fgroup"><label>ACTUAL INSTRUMENT</label><input class="fld mono" id="f_actual" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>DUAL (교육받음)</label><input class="fld mono" id="f_dual" placeholder="0:00"></div>
-      <div class="fgroup"><label>INSTRUCTOR (교육함)</label><input class="fld mono" id="f_instr" placeholder="0:00"></div>
+      <div class="fgroup"><label>SIMULATED INSTRUMENT</label><input class="fld mono" id="f_sim" placeholder="0:00"></div>
+      <div class="fgroup"><label>IFR (optional)</label><input class="fld mono" id="f_ifr" placeholder="0:00"></div>
     </div>
-    <div class="fgroup"><label>기장(PIC) 성명</label><input class="fld" id="f_picname" placeholder="SELF 또는 기장 이름"></div>
+    <div class="frow c2">
+      <div class="fgroup"><label>PICUS</label><input class="fld mono" id="f_picus" placeholder="0:00"></div>
+      <div class="fgroup"><label>CRUISE RELIEF</label><input class="fld mono" id="f_relief" placeholder="0:00"></div>
+    </div>
+    <div class="frow c2">
+      <div class="fgroup"><label>DUAL (received)</label><input class="fld mono" id="f_dual" placeholder="0:00"></div>
+      <div class="fgroup"><label>INSTRUCTOR (given)</label><input class="fld mono" id="f_instr" placeholder="0:00"></div>
+    </div>
+    <div class="fgroup"><label>PIC name</label><input class="fld" id="f_picname" placeholder="SELF or captain name"></div>
 
-    <div class="fdiv"></div><p class="fsub">이착륙 · 접근</p>
+    <div class="fdiv"></div><p class="fsub">Takeoffs / landings · approaches</p>
     <div class="frow c2">
-      <div class="fgroup"><label>주간 T/O</label><input class="fld mono" id="f_dto" inputmode="numeric" placeholder="0"></div>
-      <div class="fgroup"><label>주간 LDG</label><input class="fld mono" id="f_dldg" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Day T/O</label><input class="fld mono" id="f_dto" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Day LDG</label><input class="fld mono" id="f_dldg" inputmode="numeric" placeholder="0"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>야간 T/O</label><input class="fld mono" id="f_nto" inputmode="numeric" placeholder="0"></div>
-      <div class="fgroup"><label>야간 LDG</label><input class="fld mono" id="f_nldg" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Night T/O</label><input class="fld mono" id="f_nto" inputmode="numeric" placeholder="0"></div>
+      <div class="fgroup"><label>Night LDG</label><input class="fld mono" id="f_nldg" inputmode="numeric" placeholder="0"></div>
     </div>
-    <div class="fgroup"><label>자동착륙 (Autoland) 횟수</label><input class="fld mono" id="f_auto" inputmode="numeric" placeholder="0"></div>
-    <div class="fgroup"><label>접근 (방식 · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="예: ILS CAT3B 34L; RNP 30R"></div>
+    <div class="fgroup"><label>Autolandings (count)</label><input class="fld mono" id="f_auto" inputmode="numeric" placeholder="0"></div>
+    <div class="fgroup"><label>Approaches (type · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="e.g. ILS CAT3B 34L; RNP 30R"></div>
+    <div class="fgroup"><label>Task</label><select class="fld" id="f_task"><option value="">—</option><option>PF</option><option>PM</option></select></div>
 
     <div class="fdiv"></div>
-    <div class="frow c2" style="margin-bottom:14px">
-      <label class="chk"><input type="checkbox" id="f_multi"><span>Multi-pilot</span></label>
-      <label class="chk"><input type="checkbox" id="f_xc"><span>Cross-country</span></label>
-    </div>
-    <div class="fgroup"><label>운항 규칙</label>
+    <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc"><span>Cross-country</span></label>
+    <div class="fgroup"><label>Flight rule</label>
       <select class="fld" id="f_rule"><option value="IFR">IFR</option><option value="VFR">VFR</option></select></div>
-    <div class="fgroup"><label>비고</label><textarea class="fld" id="f_rem" placeholder="훈련 메모, 지연, 비정상 등"></textarea></div>
+    <div class="fgroup"><label>Remarks</label><textarea class="fld" id="f_rem" placeholder="Training notes, delays, abnormals…"></textarea></div>
   </div>
-  <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="fSave">저장</button></div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="fSave">Save</button></div>
 </div></div>
 
 <div class="modal" id="m-ac"><div class="scrim" data-close></div><div class="sheet">
-  <div class="sheet-head"><h3 id="acTitle">기재 추가</h3><button class="del" id="acDel" style="display:none">삭제</button><button class="x" data-close>&times;</button></div>
+  <div class="sheet-head"><h3 id="acTitle">Add aircraft</h3><button class="del" id="acDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
     <div class="frow c2">
-      <div class="fgroup"><label>등록기호</label><input class="fld" id="a_reg" placeholder="HL8888" autocapitalize="characters"></div>
-      <div class="fgroup"><label>형식 (Type)</label><input class="fld" id="a_type" placeholder="A321" autocapitalize="characters"></div>
+      <div class="fgroup"><label>Registration</label><input class="fld" id="a_reg" placeholder="HL8888" autocapitalize="characters"></div>
+      <div class="fgroup"><label>Type</label><input class="fld" id="a_type" placeholder="A321" autocapitalize="characters"></div>
     </div>
-    <div class="fgroup"><label>클래스</label>
+    <div class="fgroup"><label>Class</label>
       <select class="fld" id="a_class">
-        <option>다발 제트 (ME Jet)</option><option>단발 제트 (SE Jet)</option>
-        <option>다발 (MEP)</option><option>단발 (SEP)</option><option>터보프롭</option><option>헬리콥터</option><option>기타</option>
+        <option>Multi-engine Jet (ME Jet)</option><option>Single-engine Jet (SE Jet)</option>
+        <option>Multi-engine Piston (MEP)</option><option>Single-engine Piston (SEP)</option><option>Turboprop</option><option>Helicopter</option><option>Other</option>
       </select></div>
-    <div class="fgroup"><label>엔진</label>
-      <select class="fld" id="a_engine"><option>Jet</option><option>Turboprop</option><option>Piston</option><option>기타</option></select></div>
-    <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="a_multi" checked><span>Multi-pilot 기재</span></label>
-    <div class="fgroup"><label>비고</label><input class="fld" id="a_rem" placeholder="선택"></div>
+    <div class="fgroup"><label>Engine</label>
+      <select class="fld" id="a_engine"><option>Jet</option><option>Turboprop</option><option>Piston</option><option>Other</option></select></div>
+    <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="a_multi" checked><span>Multi-pilot aircraft</span></label>
+    <div class="fgroup"><label>Remarks</label><input class="fld" id="a_rem" placeholder="Optional"></div>
   </div>
-  <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="acSave">저장</button></div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="acSave">Save</button></div>
 </div></div>
 
 <div class="modal" id="m-sim"><div class="scrim" data-close></div><div class="sheet">
-  <div class="sheet-head"><h3 id="simTitle">SIM 세션 추가</h3><button class="del" id="simDel" style="display:none">삭제</button><button class="x" data-close>&times;</button></div>
+  <div class="sheet-head"><h3 id="simTitle">Add SIM session</h3><button class="del" id="simDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
     <div class="frow c2">
-      <div class="fgroup"><label>날짜</label><input type="date" class="fld" id="s_date"></div>
-      <div class="fgroup"><label>분류</label>
-        <select class="fld" id="s_cat"><option>정기 심 평가</option><option>OPC</option><option>LPC</option><option>훈련</option><option>초기/전환</option><option>기타</option></select></div>
+      <div class="fgroup"><label>Date</label><input type="date" class="fld" id="s_date"></div>
+      <div class="fgroup"><label>Category</label>
+        <select class="fld" id="s_cat"><option>Proficiency Check</option><option>OPC</option><option>LPC</option><option>Training</option><option>Initial / Conversion</option><option>Other</option></select></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>기종 / 장치</label><input class="fld" id="s_type" placeholder="A321 FFS"></div>
-      <div class="fgroup"><label>장치 ID</label><input class="fld" id="s_dev" placeholder="선택"></div>
+      <div class="fgroup"><label>Type / device</label><input class="fld" id="s_type" placeholder="A321 FFS"></div>
+      <div class="fgroup"><label>Device ID</label><input class="fld" id="s_dev" placeholder="Optional"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>세션 시간</label><input class="fld mono" id="s_total" placeholder="4:00"></div>
-      <div class="fgroup"><label>계기 시간</label><input class="fld mono" id="s_instr" placeholder="0:00"></div>
+      <div class="fgroup"><label>Session time</label><input class="fld mono" id="s_total" placeholder="4:00"></div>
+      <div class="fgroup"><label>Instrument time</label><input class="fld mono" id="s_instr" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>심사관</label><input class="fld" id="s_exam" placeholder="선택"></div>
-      <div class="fgroup"><label>결과</label>
+      <div class="fgroup"><label>Examiner</label><input class="fld" id="s_exam" placeholder="Optional"></div>
+      <div class="fgroup"><label>Result</label>
         <select class="fld" id="s_res"><option value="">—</option><option>PASS</option><option>FAIL</option></select></div>
     </div>
-    <div class="fgroup"><label>비고</label><textarea class="fld" id="s_rem" placeholder="평가 항목, 메모"></textarea></div>
+    <div class="fgroup"><label>Remarks</label><textarea class="fld" id="s_rem" placeholder="Assessment items, notes"></textarea></div>
   </div>
-  <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="simSave">저장</button></div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="simSave">Save</button></div>
 </div></div>
 
 <div class="modal" id="m-cred"><div class="scrim" data-close></div><div class="sheet">
-  <div class="sheet-head"><h3 id="credTitle">자격 항목 추가</h3><button class="del" id="credDel" style="display:none">삭제</button><button class="x" data-close>&times;</button></div>
+  <div class="sheet-head"><h3 id="credTitle">Add item</h3><button class="del" id="credDel" style="display:none">Delete</button><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
-    <div class="fgroup"><label>유형</label>
-      <select class="fld" id="c_type"><option>라이선스</option><option>메디컬</option><option>타입레이팅</option><option>리커런시</option><option>기타</option></select></div>
-    <div class="fgroup"><label>이름</label><input class="fld" id="c_name" placeholder="예: Class 1 Medical / A320 TR"></div>
+    <div class="fgroup"><label>Type</label>
+      <select class="fld" id="c_type"><option>Licence</option><option>Medical</option><option>Type rating</option><option>Recency</option><option>Other</option></select></div>
+    <div class="fgroup"><label>Name</label><input class="fld" id="c_name" placeholder="e.g. Class 1 Medical / A320 TR"></div>
     <div class="frow c2">
-      <div class="fgroup"><label>발급일</label><input type="date" class="fld" id="c_issue"></div>
-      <div class="fgroup"><label>만료일</label><input type="date" class="fld" id="c_exp"></div>
+      <div class="fgroup"><label>Issued</label><input type="date" class="fld" id="c_issue"></div>
+      <div class="fgroup"><label>Expires</label><input type="date" class="fld" id="c_exp"></div>
     </div>
-    <div class="fgroup"><label>알림 (만료 N일 전)</label><input class="fld mono" id="c_rem" inputmode="numeric" placeholder="60"></div>
+    <div class="fgroup"><label>Alert (N days before expiry)</label><input class="fld mono" id="c_rem" inputmode="numeric" placeholder="60"></div>
   </div>
-  <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="credSave">저장</button></div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="credSave">Save</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
 
+<script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/logbook-pdf.js"></script>
 <script>
@@ -482,10 +527,12 @@
 
   /* ---------- aggregation ---------- */
   function totals(list){
-    var t={total:0,pic:0,sic:0,night:0,ifr:0,xc:0,dual:0,instr:0,ldg:0,auto:0,multi:0,n:0};
+    var t={total:0,pic:0,sic:0,night:0,ifr:0,actual:0,simInst:0,xc:0,dual:0,instr:0,picus:0,relief:0,ldg:0,auto:0,toDay:0,toNight:0,ldgDay:0,ldgNight:0,n:0};
     list.forEach(function(f){ t.total+=f.total||0; t.pic+=f.pic||0; t.sic+=f.sic||0; t.night+=f.night||0; t.ifr+=f.ifr||0;
-      t.xc+=f.xc?(f.total||0):0; t.dual+=f.dual||0; t.instr+=f.instr||0; t.ldg+=(f.dLdg||0)+(f.nLdg||0); t.auto+=f.auto||0;
-      t.multi+=f.multi?(f.total||0):0; t.n++; });
+      t.actual+=f.actual||0; t.simInst+=f.simInst||0;
+      t.xc+=f.xc?(f.total||0):0; t.dual+=f.dual||0; t.instr+=f.instr||0; t.picus+=f.picus||0; t.relief+=f.relief||0;
+      t.toDay+=f.dTo||0; t.toNight+=f.nTo||0; t.ldgDay+=f.dLdg||0; t.ldgNight+=f.nLdg||0;
+      t.ldg+=(f.dLdg||0)+(f.nLdg||0); t.auto+=f.auto||0; t.n++; });
     return t;
   }
   function recent(daysN, pred){ var cut=new Date(); cut.setDate(cut.getDate()-daysN); var c=0; var last=null;
@@ -494,90 +541,95 @@
   }
 
   /* ---------- DASHBOARD ---------- */
+  var dashScope='all';
+  function bar(label,val,max,color,isCount){ var pct=max>0?Math.round((val/max)*100):0; if(pct>100)pct=100;
+    var disp=isCount?String(val||0):fmtHM(val);
+    return '<div class="bar"><div class="bl">'+esc(label)+'</div><div class="bt"><div class="bf '+(color||'')+'" style="width:'+pct+'%"></div></div><div class="bv">'+disp+'</div></div>'; }
+  function grandCell(cls,k,n,v){ return '<div class="cell '+cls+'"><div class="k">'+esc(k)+'</div>'+(n?'<div class="n">'+esc(n)+'</div>':'')+'<div class="v">'+esc(v)+'</div></div>'; }
   function renderDash(){
-    var t=totals(S.flights);
-    $('#dashTotal').textContent=fmtHM(t.total);
-    $('#dashFlights').textContent=t.n;
+    var fl=S.flights, sm=S.sim;
+    var t=totals(fl);
+    var simMin=sm.reduce(function(a,s){return a+(s.total||0);},0);
+    $('#dashGrand').innerHTML =
+      grandCell('ac','Aircraft', fl.length+' flights', fmtHM(t.total)) +
+      grandCell('sim','Sim', sm.length+' sessions', fmtHM(simMin)) +
+      grandCell('tot','Total', (fl.length+sm.length)+' records', fmtHM(t.total+simMin));
+    var isSim=dashScope==='sim';
+    $('#dashClabel').textContent=(dashScope==='ac'?'Aircraft':dashScope==='sim'?'Simulator':'Total')+' · BLOCK';
+    $('#dashTotal').textContent=fmtHM(isSim?simMin:t.total);
+    $('#dashFlights').textContent=isSim?sm.length:t.n;
     $('#dashLdg').textContent=t.ldg;
-    $('#dashAvg').textContent=fmtHM(t.n?Math.round(t.total/t.n):0);
-    var st=$('#hdrTail'); st.textContent=fmtHM(t.total)+' · '+t.n+'FLT';
+    $('#dashAvg').textContent=fmtHM(isSim?(sm.length?Math.round(simMin/sm.length):0):(t.n?Math.round(t.total/t.n):0));
+    $('#hdrTail').textContent=fmtHM(t.total+simMin)+' · '+(fl.length+sm.length)+'R';
 
-    var cells=[['PIC',t.pic,1],['SIC',t.sic,0],['NIGHT',t.night,0],['IFR',t.ifr,0],['X-COUNTRY',t.xc,0],['MULTI-PILOT',t.multi,0]];
-    var simT=S.sim.reduce(function(a,s){return a+(s.total||0);},0);
-    cells.push(['SIM',simT,0]); cells.push(['AUTOLAND',null,0,t.auto]); cells.push(['기재',null,0,S.aircraft.length]);
-    $('#dashGrid').innerHTML=cells.map(function(c){
-      var val = c[3]!=null ? c[3] : fmtHM(c[1]);
-      return '<div class="stat"><div class="k">'+c[0]+'</div><div class="v'+(c[2]?' cyan':'')+'">'+val+'</div></div>';
-    }).join('');
+    var fmax=Math.max(t.pic,t.picus,t.sic,t.dual,t.relief,1);
+    $('#dashFunc').innerHTML=[['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
+    var dayMin=Math.max(t.total-t.night,0);
+    var cmax=Math.max(t.night,dayMin,t.actual,t.simInst,t.xc,1);
+    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['SIM INST',t.simInst,''],['CROSS CTRY',t.xc,'']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
+    var curr=[['TO-DAY',t.toDay],['LDG-DAY',t.ldgDay],['TO-NIGHT',t.toNight],['LDG-NIGHT',t.ldgNight],['AUTOLAND',t.auto]];
+    var crmax=Math.max.apply(null,curr.map(function(c){return c[1];}).concat([1]));
+    $('#dashCurr').innerHTML=curr.map(function(c){return bar(c[0],c[1],crmax,'green',true);}).join('');
+    var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
+    var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
+    $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
     // recency
     var ldg90=recent(90,function(f){return (f.dLdg||0)+(f.nLdg||0);});
     var nldg90=recent(90,function(f){return (f.nLdg||0);});
     var auto90=recent(90,function(f){return (f.auto||0);});
     var rec=[];
-    rec.push(recRow(ldg90.count>=3?'g':(ldg90.count>0?'a':'r'),'90일 이착륙', '최근 90일 · 최소 3회', ldg90.count, '회'));
-    rec.push(recRow(nldg90.count>=1?'g':'x','야간 착륙', auto90.last?'최근 '+(nldg90.last||'-'):'기록 없음', nldg90.count,'회'));
-    rec.push(recRow(auto90.count>0?'g':'x','자동착륙 (Autoland)', auto90.last?('최근 '+auto90.last):'90일 내 기록 없음', auto90.count,'회'));
+    rec.push(recRow(ldg90.count>=3?'g':(ldg90.count>0?'a':'r'),'90-day landings', 'Last 90 days · min 3', ldg90.count, ''));
+    rec.push(recRow(nldg90.count>=1?'g':'x','Night landings', nldg90.last?'Last '+nldg90.last:'No record', nldg90.count,''));
+    rec.push(recRow(auto90.count>0?'g':'x','Autolandings', auto90.last?('Last '+auto90.last):'None in 90 days', auto90.count,''));
     // credentials
     var crd=S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');});
     crd.forEach(function(c){
       var status='x', meta=c.type, valTop='—', valBot='';
       if(c.exp){ var d=daysBetween(new Date(c.exp+'T00:00:00'), new Date(today()+'T00:00:00'));
-        var rem=c.rem||60; status = d<0?'r':(d<=rem?'a':'g'); valTop=d<0?'만료':('D-'+d); valBot=c.exp; meta=c.type+' · '+(d<0?'만료됨':'유효'); }
+        var rem=c.rem||60; status = d<0?'r':(d<=rem?'a':'g'); valTop=d<0?'Expired':('D-'+d); valBot=c.exp; meta=c.type+' · '+(d<0?'Expired':'Valid'); }
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
-    $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>표시할 항목 없음</b>비행을 기록하면 리커런시가 계산됩니다.</div>';
+    $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
 
-    // recent flights
-    var rf=S.flights.slice(0,5);
-    $('#dashRecent').innerHTML = rf.length ? rf.map(function(f){ return rowFlight(f); }).join('')
-      : '<div class="empty"><b>아직 비행 기록이 없습니다</b>아래 + 버튼으로 첫 비행을 추가하세요.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.1 · offline';
+    $('#dashRecent').innerHTML = S.flights.length ? S.flights.slice(0,5).map(cardFlight).join('')
+      : '<div class="empty"><b>No flights yet</b>Use the + button to add your first flight.</div>';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3 · offline';
   }
   function recRow(s,name,meta,count,unit,topOverride,botOverride){
     var val = topOverride!=null ? ('<b>'+esc(topOverride)+'</b>'+(botOverride?esc(botOverride):''))
             : ('<b>'+(count==null?'—':count)+'</b>'+(unit||''));
     return '<div class="reccard"><span class="dot '+s+'"></span><div><div class="name">'+esc(name)+'</div><div class="meta">'+esc(meta)+'</div></div><div class="val">'+val+'</div></div>';
   }
-  function rowFlight(f){
-    return '<div class="row" data-fid="'+f.id+'"><div class="main"><div class="t mono">'+esc(f.dep||'????')+' → '+esc(f.arr||'????')+'</div>'+
-      '<div class="s">'+esc(f.date||'')+(f.fno?' · '+esc(f.fno):'')+(f.reg?' · '+esc(f.reg):'')+'</div></div>'+
-      '<div class="r"><b>'+fmtHM(f.total)+'</b>'+(f.night?('야 '+fmtHM(f.night)):'')+'</div></div>';
+  function monName(mm){return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mm,10)||0]||'';}
+  function clk2(min){var h=Math.floor(min/60),m=min%60;return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
+  function cardFlight(f){ var d=(f.date||'').split('-');
+    var out=f.off!=null?clk2(f.off):'--:--', inn=f.on!=null?clk2(f.on):'--:--';
+    return '<div class="fcard" data-fid="'+f.id+'"><div class="d"><div class="dd">'+esc(d[2]||'--')+'</div><div class="dm">'+esc(monName(d[1]))+" '"+esc((d[0]||'').slice(2))+'</div></div>'+
+      '<div class="mid"><div class="fn">'+esc(f.fno||'—')+'  '+esc(f.dep||'????')+' \u2192 '+esc(f.arr||'????')+'</div><div class="ac">'+esc(f.acType||'')+(f.reg?' \u00b7 '+esc(f.reg):'')+'</div></div>'+
+      '<div class="rt"><div class="rr">'+out+' \u2013 '+inn+'</div><div class="du">'+fmtHM(f.total)+'</div></div></div>';
   }
 
   /* ---------- LOGBOOK ---------- */
   function renderLog(){
-    var b=$('#logBody'), foot=$('#logFoot');
-    if(!S.flights.length){ b.innerHTML=''; foot.innerHTML=''; $('#logEmpty').innerHTML='<div class="empty" style="margin-top:12px"><b>로그북이 비어 있습니다</b>+ 비행 버튼으로 기록을 시작하세요.</div>'; return; }
+    if(!S.flights.length){ $('#logList').innerHTML=''; $('#logTotals').innerHTML='';
+      $('#logEmpty').innerHTML='<div class="empty" style="margin-top:12px"><b>Logbook is empty</b>Start with the + Flight button.</div>'; return; }
     $('#logEmpty').innerHTML='';
-    b.innerHTML=S.flights.map(function(f){
-      return '<tr data-fid="'+f.id+'">'+
-        '<td class="l num dim">'+esc((f.date||'').slice(5))+'</td>'+
-        '<td class="l dim">'+esc(f.fno||'')+'</td>'+
-        '<td class="l route">'+esc(f.dep||'??')+'–'+esc(f.arr||'??')+'</td>'+
-        '<td class="num dim">'+esc(f.acType||f.reg||'')+'</td>'+
-        '<td class="num">'+fmtHM(f.total)+'</td>'+
-        '<td class="num">'+(f.pic?fmtHM(f.pic):'·')+'</td>'+
-        '<td class="num">'+(f.sic?fmtHM(f.sic):'·')+'</td>'+
-        '<td class="num">'+(f.night?fmtHM(f.night):'·')+'</td>'+
-        '<td class="num">'+(f.ifr?fmtHM(f.ifr):'·')+'</td>'+
-        '<td class="num">'+(((f.dLdg||0)+(f.nLdg||0))||'·')+'</td>'+
-        '<td class="num al">'+(f.auto||'·')+'</td></tr>';
-    }).join('');
     var t=totals(S.flights);
-    foot.innerHTML='<tr><td class="l" colspan="4">합계 · '+t.n+' FLT</td>'+
-      '<td>'+fmtHM(t.total)+'</td><td>'+fmtHM(t.pic)+'</td><td>'+fmtHM(t.sic)+'</td><td>'+fmtHM(t.night)+'</td><td>'+fmtHM(t.ifr)+'</td><td>'+t.ldg+'</td><td class="al">'+t.auto+'</td></tr>';
+    $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n));
+    $('#logList').innerHTML=S.flights.map(cardFlight).join('');
   }
 
   /* ---------- SIM ---------- */
   function renderSim(){
     var el=$('#simList');
-    if(!S.sim.length){ el.innerHTML='<div class="empty"><b>심 기록 없음</b>정기 심 평가·OPC·LPC를 별도로 기록합니다.</div>'; return; }
-    el.innerHTML=S.sim.map(function(s){
+    if(!S.sim.length){ el.innerHTML='<div class="empty"><b>No sim records</b>Proficiency checks, OPC and LPC are logged here.</div>'; return; }
+    el.innerHTML=S.sim.map(function(s){ var d=(s.date||'').split('-');
       var rp=s.res?('<span class="pill '+(s.res==='PASS'?'pass':(s.res==='FAIL'?'fail':''))+'">'+esc(s.res)+'</span>'):'';
-      return '<div class="row" data-sid="'+s.id+'"><div class="main"><div class="t">'+rp+esc(s.cat||'세션')+'</div>'+
-        '<div class="s">'+esc(s.date||'')+(s.type?' · '+esc(s.type):'')+(s.exam?' · '+esc(s.exam):'')+'</div></div>'+
-        '<div class="r"><b>'+fmtHM(s.total)+'</b>'+(s.instr?('계기 '+fmtHM(s.instr)):'')+'</div></div>';
+      return '<div class="fcard sim" data-sid="'+s.id+'"><div class="d"><div class="dd">'+esc(d[2]||'--')+'</div><div class="dm">'+esc(monName(d[1]))+" '"+esc((d[0]||'').slice(2))+'</div></div>'+
+        '<div class="mid"><div class="fn">'+esc(s.cat||'Session')+'</div><div class="ac">'+esc(s.type||'')+(s.exam?' \u00b7 '+esc(s.exam):'')+'</div></div>'+
+        '<div class="rt"><div class="rr">'+rp+'</div><div class="du">'+fmtHM(s.total)+'</div></div></div>';
     }).join('');
   }
 
@@ -587,14 +639,14 @@
     ac.innerHTML = S.aircraft.length ? S.aircraft.map(function(a){
       return '<div class="row" data-aid="'+a.id+'"><div class="main"><div class="t mono">'+esc(a.reg||'')+'</div>'+
         '<div class="s">'+esc(a.type||'')+' · '+esc(a.cls||'')+' · '+esc(a.engine||'')+(a.multi?' · MP':'')+'</div></div></div>';
-    }).join('') : '<div class="empty"><b>등록된 기재 없음</b>기재를 추가하면 비행 입력 시 형식이 자동 채워집니다.</div>';
+    }).join('') : '<div class="empty"><b>No aircraft</b>Adding an aircraft auto-fills its type when logging a flight.</div>';
 
     var cl=$('#credList');
     cl.innerHTML = S.credentials.length ? S.credentials.slice().sort(function(a,b){return (a.exp||'').localeCompare(b.exp||'');}).map(function(c){
       var sub=c.type; var rr='';
-      if(c.exp){ var d=daysBetween(new Date(c.exp+'T00:00:00'),new Date(today()+'T00:00:00')); rr='<b>'+(d<0?'만료':'D-'+d)+'</b>'+esc(c.exp); }
+      if(c.exp){ var d=daysBetween(new Date(c.exp+'T00:00:00'),new Date(today()+'T00:00:00')); rr='<b>'+(d<0?'Expired':'D-'+d)+'</b>'+esc(c.exp); }
       return '<div class="row" data-cid="'+c.id+'"><div class="main"><div class="t">'+esc(c.name||c.type)+'</div><div class="s">'+esc(sub)+'</div></div><div class="r">'+rr+'</div></div>';
-    }).join('') : '<div class="empty"><b>자격 항목 없음</b>라이선스·메디컬·타입레이팅 만료를 추적합니다.</div>';
+    }).join('') : '<div class="empty"><b>No items</b>Track licence, medical and type-rating expiry.</div>';
   }
 
   /* ---------- modal helpers ---------- */
@@ -606,31 +658,50 @@
   var editFid=null;
   function refreshAcDatalist(){ $('#acDatalist').innerHTML=S.aircraft.map(function(a){return '<option value="'+esc(a.reg)+'">'+esc(a.type||'')+'</option>';}).join(''); }
   function acByReg(reg){ reg=(reg||'').trim().toUpperCase(); for(var i=0;i<S.aircraft.length;i++){ if((S.aircraft[i].reg||'').toUpperCase()===reg) return S.aircraft[i]; } return null; }
-  function openFlight(f){
-    editFid=f?f.id:null; $('#fTitle').textContent=f?'비행 수정':'비행 추가'; $('#fDel').style.display=f?'block':'none';
-    refreshAcDatalist();
+  function fillFlight(f){
     var g=function(id){return $('#'+id);};
-    g('f_date').value=f?f.date:today(); g('f_fno').value=f?(f.fno||''):''; g('f_reg').value=f?(f.reg||''):'';
+    g('f_date').value=f&&f.date?f.date:today(); g('f_fno').value=f?(f.fno||''):''; g('f_reg').value=f?(f.reg||''):'';
     g('f_dep').value=f?(f.dep||''):''; g('f_arr').value=f?(f.arr||''):'';
-    g('f_off').value=f&&f.off!=null?clk(f.off):''; g('f_on').value=f&&f.on!=null?clk(f.on):''; g('f_total').value=f?fmtHM(f.total):'';
+    g('f_off').value=f&&f.off!=null?clk(f.off):''; g('f_on').value=f&&f.on!=null?clk(f.on):''; g('f_total').value=f&&f.total?fmtHM(f.total):''; g('f_total')._auto=false;
     g('f_pic').value=f&&f.pic?fmtHM(f.pic):''; g('f_sic').value=f&&f.sic?fmtHM(f.sic):'';
-    g('f_night').value=f&&f.night?fmtHM(f.night):''; g('f_ifr').value=f&&f.ifr?fmtHM(f.ifr):'';
+    g('f_picus').value=f&&f.picus?fmtHM(f.picus):''; g('f_relief').value=f&&f.relief?fmtHM(f.relief):'';
+    g('f_night').value=f&&f.night?fmtHM(f.night):'';
+    g('f_actual').value=f&&f.actual?fmtHM(f.actual):''; g('f_sim').value=f&&f.simInst?fmtHM(f.simInst):''; g('f_ifr').value=f&&f.ifr?fmtHM(f.ifr):'';
     g('f_dual').value=f&&f.dual?fmtHM(f.dual):''; g('f_instr').value=f&&f.instr?fmtHM(f.instr):'';
     g('f_picname').value=f?(f.picName||''):'';
     g('f_dto').value=f&&f.dTo?f.dTo:''; g('f_dldg').value=f&&f.dLdg?f.dLdg:''; g('f_nto').value=f&&f.nTo?f.nTo:''; g('f_nldg').value=f&&f.nLdg?f.nLdg:'';
-    g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):'';
-    g('f_multi').checked=f?!!f.multi:false; g('f_xc').checked=f?!!f.xc:false; g('f_rule').value=f?(f.rule||'IFR'):'IFR';
+    g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):''; g('f_task').value=f?(f.task||''):'';
+    g('f_xc').checked=f?!!f.xc:false; g('f_rule').value=f?(f.rule||'IFR'):'IFR';
     g('f_rem').value=f?(f.rem||''):'';
-    syncAcType(); openM('m-flight');
+    syncAcType(); updLocal();
+  }
+  function openFlight(f){
+    editFid=f?f.id:null; $('#fTitle').textContent=f?'Edit flight':'Add flight'; $('#fDel').style.display=f?'block':'none';
+    refreshAcDatalist(); fillFlight(f); openM('m-flight');
   }
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function syncAcType(){ var a=acByReg($('#f_reg').value); $('#f_acType').textContent=a?(a.type+' · '+a.cls):''; }
   function autoBlock(){ var off=parseClock($('#f_off').value), on=parseClock($('#f_on').value);
     if(off!=null&&on!=null){ var b=(on-off+1440)%1440; if(!$('#f_total').value || $('#f_total')._auto) { $('#f_total').value=fmtHM(b); $('#f_total')._auto=true; } } }
-  $('#f_off').addEventListener('input',autoBlock); $('#f_on').addEventListener('input',autoBlock);
+  function resolveApt(code){ code=String(code||'').trim().toUpperCase(); if(code.length===3 && window.AIRPORTS_IATA && window.AIRPORTS_IATA[code]) return window.AIRPORTS_IATA[code]; return code; }
+  function localClock(icao,dateStr,utcMin){ var A=window.AIRPORTS; if(!A) return null; var info=A[(icao||'').toUpperCase()]; if(!info||!info[1]) return null;
+    var d=new Date((dateStr||today())+'T00:00:00Z'); d.setUTCMinutes(d.getUTCMinutes()+utcMin);
+    try{ return new Intl.DateTimeFormat('en-GB',{timeZone:info[1],hour:'2-digit',minute:'2-digit',hour12:false}).format(d); }catch(e){ return null; } }
+  function updLocal(){ var dep=$('#f_dep').value.trim().toUpperCase(), arr=$('#f_arr').value.trim().toUpperCase(), date=$('#f_date').value||today();
+    var off=parseClock($('#f_off').value), on=parseClock($('#f_on').value); var p=[];
+    var lo=off!=null?localClock(dep,date,off):null; if(lo) p.push('OUT '+lo+' '+dep);
+    var li=on!=null?localClock(arr,date,on):null; if(li) p.push('IN '+li+' '+arr);
+    $('#f_localHint').textContent=p.length?('Local \u00b7 '+p.join('   \u00b7   ')):''; }
+  $('#f_off').addEventListener('input',function(){autoBlock();updLocal();}); $('#f_on').addEventListener('input',function(){autoBlock();updLocal();});
+  $('#f_date').addEventListener('change',updLocal);
   $('#f_total').addEventListener('input',function(){ this._auto=false; });
   $('#f_reg').addEventListener('input',syncAcType);
+  ['f_dep','f_arr'].forEach(function(id){ var el=$('#'+id); el.addEventListener('blur',function(){ el.value=resolveApt(el.value); updLocal(); }); });
   $('#tab-add').addEventListener('click',function(){ openFlight(null); });
+  $('#fPaste').addEventListener('click',function(){ var last=S.flights[0]; if(!last){ toast('No previous flight'); return; }
+    editFid=null; $('#fTitle').textContent='Add flight'; $('#fDel').style.display='none';
+    var clone={}; for(var k in last) clone[k]=last[k]; clone.date=today(); clone.dep=last.arr; clone.arr=''; delete clone.id;
+    fillFlight(clone); toast('Copied last flight'); });
 
   $('#fSave').addEventListener('click',function(){
     var reg=$('#f_reg').value.trim().toUpperCase(); var a=acByReg(reg);
@@ -639,64 +710,66 @@
     var obj={ id:editFid||uid(), _c:(editFid?undefined:Date.now()),
       date:$('#f_date').value||today(), fno:$('#f_fno').value.trim().toUpperCase(),
       reg:reg, acType:a?a.type:'', acClass:a?a.cls:'',
-      dep:$('#f_dep').value.trim().toUpperCase(), arr:$('#f_arr').value.trim().toUpperCase(),
+      dep:resolveApt($('#f_dep').value), arr:resolveApt($('#f_arr').value),
       off:off, on:on, total:total,
       pic:parseHM($('#f_pic').value), sic:parseHM($('#f_sic').value),
-      night:parseHM($('#f_night').value), ifr:parseHM($('#f_ifr').value),
+      night:parseHM($('#f_night').value), actual:parseHM($('#f_actual').value), simInst:parseHM($('#f_sim').value), ifr:parseHM($('#f_ifr').value),
       dual:parseHM($('#f_dual').value), instr:parseHM($('#f_instr').value),
+      picus:parseHM($('#f_picus').value), relief:parseHM($('#f_relief').value),
       picName:$('#f_picname').value.trim(),
       dTo:num($('#f_dto').value), dLdg:num($('#f_dldg').value), nTo:num($('#f_nto').value), nLdg:num($('#f_nldg').value),
-      auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(),
-      multi:$('#f_multi').checked, xc:$('#f_xc').checked, rule:$('#f_rule').value, rem:$('#f_rem').value.trim() };
+      auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:$('#f_task').value,
+      acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:$('#f_rule').value, rem:$('#f_rem').value.trim() };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
-    put('flights',obj).then(reload).then(function(){ closeM(); go('log'); toast(editFid?'수정됨':'비행 저장됨'); });
+    put('flights',obj).then(reload).then(function(){ closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); });
   });
-  $('#fDel').addEventListener('click',function(){ if(!editFid) return; if(!confirm('이 비행을 삭제할까요?')) return;
-    del('flights',editFid).then(reload).then(function(){ closeM(); go('log'); toast('삭제됨'); }); });
+  $('#fDel').addEventListener('click',function(){ if(!editFid) return; if(!confirm('Delete this flight?')) return;
+    del('flights',editFid).then(reload).then(function(){ closeM(); go('log'); toast('Deleted'); }); });
 
   /* ---------- AIRCRAFT form ---------- */
   var editAid=null;
-  function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'기재 수정':'기재 추가'; $('#acDel').style.display=a?'block':'none';
-    $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'다발 제트 (ME Jet)';
+  function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'Edit aircraft':'Add aircraft'; $('#acDel').style.display=a?'block':'none';
+    $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'Multi-engine Jet (ME Jet)';
     $('#a_engine').value=a?a.engine:'Jet'; $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
   $('#addAc').addEventListener('click',function(){ openAc(null); });
   $('#acSave').addEventListener('click',function(){
-    var reg=$('#a_reg').value.trim().toUpperCase(); if(!reg){ toast('등록기호를 입력하세요'); return; }
+    var reg=$('#a_reg').value.trim().toUpperCase(); if(!reg){ toast('Enter a registration'); return; }
     var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:$('#a_class').value,engine:$('#a_engine').value,multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
-    put('aircraft',obj).then(reload).then(function(){ closeM(); go('more'); toast(editAid?'수정됨':'기재 저장됨'); });
+    put('aircraft',obj).then(reload).then(function(){ closeM(); go('more'); toast(editAid?'Updated':'Aircraft saved'); });
   });
-  $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('이 기재를 삭제할까요?')) return;
-    del('aircraft',editAid).then(reload).then(function(){ closeM(); go('more'); toast('삭제됨'); }); });
+  $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('Delete this aircraft?')) return;
+    del('aircraft',editAid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
 
   /* ---------- SIM form ---------- */
   var editSid=null;
-  function openSim(s){ editSid=s?s.id:null; $('#simTitle').textContent=s?'SIM 수정':'SIM 세션 추가'; $('#simDel').style.display=s?'block':'none';
-    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'정기 심 평가'; $('#s_type').value=s?(s.type||''):''; $('#s_dev').value=s?(s.dev||''):'';
+  function openSim(s){ editSid=s?s.id:null; $('#simTitle').textContent=s?'Edit SIM':'Add SIM session'; $('#simDel').style.display=s?'block':'none';
+    $('#s_date').value=s?s.date:today(); $('#s_cat').value=s?s.cat:'Proficiency Check'; $('#s_type').value=s?(s.type||''):''; $('#s_dev').value=s?(s.dev||''):'';
     $('#s_total').value=s?fmtHM(s.total):''; $('#s_instr').value=s&&s.instr?fmtHM(s.instr):''; $('#s_exam').value=s?(s.exam||''):''; $('#s_res').value=s?(s.res||''):''; $('#s_rem').value=s?(s.rem||''):''; openM('m-sim'); }
   $('#addSim').addEventListener('click',function(){ openSim(null); });
   $('#simSave').addEventListener('click',function(){
     var obj={id:editSid||uid(),_c:(editSid?undefined:Date.now()),date:$('#s_date').value||today(),cat:$('#s_cat').value,type:$('#s_type').value.trim(),dev:$('#s_dev').value.trim(),
       total:parseHM($('#s_total').value),instr:parseHM($('#s_instr').value),exam:$('#s_exam').value.trim(),res:$('#s_res').value,rem:$('#s_rem').value.trim()};
     if(editSid){ var old=S.sim.filter(function(x){return x.id===editSid;})[0]; if(old) obj._c=old._c; }
-    put('sim',obj).then(reload).then(function(){ closeM(); go('sim'); toast(editSid?'수정됨':'세션 저장됨'); });
+    put('sim',obj).then(reload).then(function(){ closeM(); go('sim'); toast(editSid?'Updated':'Session saved'); });
   });
-  $('#simDel').addEventListener('click',function(){ if(!editSid) return; if(!confirm('이 세션을 삭제할까요?')) return;
-    del('sim',editSid).then(reload).then(function(){ closeM(); go('sim'); toast('삭제됨'); }); });
+  $('#simDel').addEventListener('click',function(){ if(!editSid) return; if(!confirm('Delete this session?')) return;
+    del('sim',editSid).then(reload).then(function(){ closeM(); go('sim'); toast('Deleted'); }); });
 
   /* ---------- CRED form ---------- */
   var editCid=null;
-  function openCred(c){ editCid=c?c.id:null; $('#credTitle').textContent=c?'자격 수정':'자격 항목 추가'; $('#credDel').style.display=c?'block':'none';
-    $('#c_type').value=c?c.type:'라이선스'; $('#c_name').value=c?(c.name||''):''; $('#c_issue').value=c?(c.issue||''):''; $('#c_exp').value=c?(c.exp||''):''; $('#c_rem').value=c?(c.rem||60):60; openM('m-cred'); }
+  function openCred(c){ editCid=c?c.id:null; $('#credTitle').textContent=c?'Edit item':'Add item'; $('#credDel').style.display=c?'block':'none';
+    $('#c_type').value=c?c.type:'Licence'; $('#c_name').value=c?(c.name||''):''; $('#c_issue').value=c?(c.issue||''):''; $('#c_exp').value=c?(c.exp||''):''; $('#c_rem').value=c?(c.rem||60):60; openM('m-cred'); }
   $('#addCred').addEventListener('click',function(){ openCred(null); });
   $('#credSave').addEventListener('click',function(){
     var obj={id:editCid||uid(),type:$('#c_type').value,name:$('#c_name').value.trim(),issue:$('#c_issue').value,exp:$('#c_exp').value,rem:num($('#c_rem').value)||60};
-    put('credentials',obj).then(reload).then(function(){ closeM(); go('more'); toast(editCid?'수정됨':'저장됨'); });
+    put('credentials',obj).then(reload).then(function(){ closeM(); go('more'); toast(editCid?'Updated':'Saved'); });
   });
-  $('#credDel').addEventListener('click',function(){ if(!editCid) return; if(!confirm('이 항목을 삭제할까요?')) return;
-    del('credentials',editCid).then(reload).then(function(){ closeM(); go('more'); toast('삭제됨'); }); });
+  $('#credDel').addEventListener('click',function(){ if(!editCid) return; if(!confirm('Delete this item?')) return;
+    del('credentials',editCid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
 
   /* ---------- row click delegation ---------- */
   document.addEventListener('click',function(e){
+    var sb=e.target.closest('[data-scope]'); if(sb){ dashScope=sb.getAttribute('data-scope'); $$('#dashSeg button').forEach(function(b){ b.classList.toggle('on', b===sb); }); renderDash(); return; }
     var r=e.target.closest('[data-fid]'); if(r){ var f=S.flights.filter(function(x){return x.id===r.getAttribute('data-fid');})[0]; if(f) openFlight(f); return; }
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
@@ -710,29 +783,29 @@
     var a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1000); }
   $('#expJson').addEventListener('click',function(){
     var data={app:'pilot_logbook',version:VER,exported:new Date().toISOString(),data:S};
-    download('logbook_backup_'+today()+'.json', JSON.stringify(data,null,2)); toast('백업 내보냄');
+    download('logbook_backup_'+today()+'.json', JSON.stringify(data,null,2)); toast('Backup exported');
   });
   $('#impJson').addEventListener('change',function(e){ var file=e.target.files[0]; if(!file) return;
     var rd=new FileReader(); rd.onload=function(){ try{ var j=JSON.parse(rd.result); var d=j.data||j;
-      if(!d.flights&&!d.aircraft){ toast('형식을 인식할 수 없음'); return; }
-      if(!confirm('현재 데이터를 백업 내용으로 모두 교체합니다. 계속할까요?')) return;
+      if(!d.flights&&!d.aircraft){ toast('Unrecognized format'); return; }
+      if(!confirm('Replace all current data with this backup. Continue?')) return;
       Promise.all(STORES.map(clearStore)).then(function(){
         var ops=[]; STORES.forEach(function(st){ (d[st]||[]).forEach(function(o){ if(o&&o.id) ops.push(put(st,o)); }); });
         return Promise.all(ops);
-      }).then(reload).then(function(){ go('dash'); toast('복원 완료'); });
-    }catch(err){ toast('복원 실패: 잘못된 파일'); } }; rd.readAsText(file); e.target.value='';
+      }).then(reload).then(function(){ go('dash'); toast('Restored'); });
+    }catch(err){ toast('Restore failed: invalid file'); } }; rd.readAsText(file); e.target.value='';
   });
   $('#expCsv').addEventListener('click',function(){
-    var head=['Date','FlightNo','Reg','Type','From','To','Out','In','Block','PIC','SIC','Night','IFR','Dual','Instr','DayTO','DayLDG','NightTO','NightLDG','Autoland','Approaches','Multi','XC','Rule','PICName','Remarks'];
+    var head=['Date','FlightNo','Reg','Type','From','To','Out','In','Block','PIC','SIC','PICUS','Relief','Night','IFR','Dual','Instr','DayTO','DayLDG','NightTO','NightLDG','Autoland','Approaches','Multi','XC','Rule','PICName','Remarks'];
     var rows=S.flights.slice().reverse().map(function(f){ return [f.date,f.fno,f.reg,f.acType,f.dep,f.arr,
-      f.off!=null?clk(f.off):'',f.on!=null?clk(f.on):'',fmtHM(f.total),fmtHM(f.pic),fmtHM(f.sic),fmtHM(f.night),fmtHM(f.ifr),fmtHM(f.dual),fmtHM(f.instr),
-      f.dTo||0,f.dLdg||0,f.nTo||0,f.nLdg||0,f.auto||0,f.appr||'',f.multi?'Y':'',f.xc?'Y':'',f.rule||'',f.picName||'',f.rem||''].map(csv).join(','); });
-    download('logbook_'+today()+'.csv', head.join(',')+'\n'+rows.join('\n'), 'text/csv'); toast('CSV 내보냄');
+      f.off!=null?clk(f.off):'',f.on!=null?clk(f.on):'',fmtHM(f.total),fmtHM(f.pic),fmtHM(f.sic),fmtHM(f.picus),fmtHM(f.relief),fmtHM(f.night),fmtHM(f.ifr),fmtHM(f.dual),fmtHM(f.instr),
+      f.dTo||0,f.dLdg||0,f.nTo||0,f.nLdg||0,f.auto||0,f.appr||'',f.acMulti?'Y':'',f.xc?'Y':'',f.rule||'',f.picName||'',f.rem||''].map(csv).join(','); });
+    download('logbook_'+today()+'.csv', head.join(',')+'\n'+rows.join('\n'), 'text/csv'); toast('CSV exported');
   });
   function csv(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
-  $('#wipe').addEventListener('click',function(){ if(!confirm('모든 데이터를 영구 삭제합니다. 백업했나요?')) return;
-    if(!confirm('정말 전체 삭제할까요? 되돌릴 수 없습니다.')) return;
-    Promise.all(STORES.map(clearStore)).then(reload).then(function(){ go('dash'); toast('전체 삭제됨'); }); });
+  $('#wipe').addEventListener('click',function(){ if(!confirm('Permanently delete all data. Have you backed up?')) return;
+    if(!confirm('Really delete everything? This cannot be undone.')) return;
+    Promise.all(STORES.map(clearStore)).then(reload).then(function(){ go('dash'); toast('All data deleted'); }); });
 
   /* ---------- PDF export ---------- */
   var PROFILE_K='logbook_profile';
@@ -742,18 +815,97 @@
     var p=loadProfile(); if($('#p_name')) $('#p_name').value=p.name||''; if($('#p_lic')) $('#p_lic').value=p.lic||'';
     ['p_name','p_lic'].forEach(function(id){ var el=$('#'+id); if(el) el.addEventListener('input',function(){ try{ localStorage.setItem(PROFILE_K, JSON.stringify(curProfile())); }catch(e){} }); });
     $$('[data-pdf]').forEach(function(b){ b.addEventListener('click',function(){
-      if(!window.LogbookPDF || !window.jspdf){ toast('PDF 모듈을 불러오지 못했습니다'); return; }
+      if(!window.LogbookPDF || !window.jspdf){ toast('PDF module failed to load'); return; }
       var fmt=b.getAttribute('data-pdf');
       try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:S.flights,sim:S.sim,profile:curProfile(),format:fmt});
-        doc.save('logbook_'+fmt+'_'+today()+'.pdf'); toast(fmt+' PDF 생성됨'); }
-      catch(e){ console.error(e); toast('PDF 생성 실패'); }
+        doc.save('logbook_'+fmt+'_'+today()+'.pdf'); toast(fmt+' PDF created'); }
+      catch(e){ console.error(e); toast('PDF creation failed'); }
     }); });
   })();
 
+  /* ---------- Pilotlog CSV import ---------- */
+  function parseDelimited(text){
+    text=String(text).replace(/^\uFEFF/,'');
+    var lines=text.split(/\r\n|\n|\r/); while(lines.length && !lines[lines.length-1]) lines.pop();
+    if(!lines.length) return {header:[],rows:[]};
+    var semi=lines[0].split(';').length, comm=lines[0].split(',').length, delim=semi>=comm?';':',';
+    function split(line){ var out=[],cur='',q=false; for(var i=0;i<line.length;i++){ var c=line[i];
+      if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else { if(c==='"') q=true; else if(c===delim){ out.push(cur); cur=''; } else cur+=c; } }
+      out.push(cur); return out; }
+    return {header:split(lines[0]),rows:lines.slice(1).map(split)};
+  }
+  function fsig(f){ return [f.date,f.fno,f.dep,f.arr,f.total].join('|'); }
+  function importPilotlog(text){
+    var p=parseDelimited(text); var idx={}; p.header.forEach(function(h,i){ idx[h.trim()]=i; });
+    if(!('PILOTLOG_DATE' in idx)) return {error:'Not a CrewLounge PILOTLOG flights CSV'};
+    var get=function(r,n){ var i=idx[n]; return i==null?'':(r[i]==null?'':String(r[i]).trim()); };
+    var mins=function(r,n){ var v=get(r,n); if(!v) return 0; var k=parseInt(v,10); return isNaN(k)?0:k; };
+    var TR=function(r,n){ return get(r,n).toUpperCase()==='TRUE'; };
+    var existing={}; S.flights.forEach(function(f){ existing[fsig(f)]=1; });
+    var acByRegMap={}; S.aircraft.forEach(function(a){ acByRegMap[(a.reg||'').toUpperCase()]=a; });
+    var flights=[], sims=[], newAc=[], skipped=0, c0=Date.now();
+    p.rows.forEach(function(r,n){
+      if(!get(r,'PILOTLOG_DATE')) return;
+      var date=get(r,'PILOTLOG_DATE');
+      var model=get(r,'AC_MODEL')||get(r,'AC_MAKE'); var variant=get(r,'AC_VARIANT');
+      var type=(model+(variant?('-'+variant):'')).trim();
+      if(TR(r,'AC_ISSIM')){
+        sims.push({id:uid(),_c:c0+n,date:date,cat:'',type:type,dev:'',
+          total:mins(r,'TIME_TOTAL')||mins(r,'TIME_TOTALSIM'),instr:mins(r,'TIME_ACTUAL')||mins(r,'TIME_IFR'),exam:'',res:'',rem:get(r,'REMARKS')});
+        return;
+      }
+      var reg=get(r,'AC_REG').toUpperCase();
+      var mp=TR(r,'AC_MP'); var engt=get(r,'AC_ENGTYPE');
+      var engine=/jet|turbine|fan/i.test(engt)?'Jet':(/turbo|prop/i.test(engt)?'Turboprop':'Piston');
+      var single=!mp && !TR(r,'AC_SPME') && mins(r,'AC_ENGINES')<=1;
+      var cls=mp?('Multi-pilot '+engine):(single?('Single-engine '+engine):('Multi-engine '+engine));
+      if(reg && !acByRegMap[reg]){ var a={id:uid(),reg:reg,type:type,cls:cls,engine:engine,multi:mp,rem:'imported'}; acByRegMap[reg]=a; newAc.push(a); }
+      var pf=get(r,'PF').toUpperCase();
+      var apTok=get(r,'TAG_APP').split('|').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
+      var f={ id:uid(), _c:c0+n, date:date, fno:get(r,'FLIGHTNUMBER').toUpperCase(),
+        reg:reg, acType:type, acClass:cls, acMulti:mp,
+        dep:resolveApt(get(r,'AF_DEP')), arr:resolveApt(get(r,'AF_ARR')),
+        off:parseClock(get(r,'TIME_DEP')), on:parseClock(get(r,'TIME_ARR')), total:mins(r,'TIME_TOTAL'),
+        pic:mins(r,'TIME_PIC'), sic:mins(r,'TIME_SIC'), picus:mins(r,'TIME_PICUS'), relief:mins(r,'TIME_RELIEF'),
+        night:mins(r,'TIME_NIGHT'), actual:mins(r,'TIME_ACTUAL'), simInst:mins(r,'TIME_HOOD'), ifr:mins(r,'TIME_IFR'),
+        dual:mins(r,'TIME_DUAL'), instr:mins(r,'TIME_INSTRUCTOR'),
+        picName:get(r,'PILOT1_NAME'),
+        dTo:mins(r,'TO_DAY'), dLdg:mins(r,'LDG_DAY'), nTo:mins(r,'TO_NIGHT'), nLdg:mins(r,'LDG_NIGHT'),
+        auto:apTok.filter(function(x){return x==='AL';}).length,
+        appr:apTok.filter(function(x){return x!=='AL';}).join('; '),
+        task:(pf==='TRUE'?'PF':(pf==='FALSE'?'PM':'')),
+        xc:mins(r,'TIME_XC')>0, rule:'IFR', rem:get(r,'REMARKS') };
+      var sig=fsig(f); if(existing[sig]){ skipped++; return; } flights.push(f);
+    });
+    return {flights:flights,sims:sims,newAc:newAc,skipped:skipped};
+  }
+  function bulkWrite(items){ return new Promise(function(res,rej){
+    if(!items.length) return res();
+    var stores={}; items.forEach(function(it){ stores[it.store]=1; });
+    var t=DB.transaction(Object.keys(stores),'readwrite');
+    t.oncomplete=function(){res();}; t.onerror=function(){rej(t.error);}; t.onabort=function(){rej(t.error);};
+    items.forEach(function(it){ t.objectStore(it.store).put(it.obj); });
+  }); }
+  $('#impPilotlog').addEventListener('change',function(e){ var file=e.target.files[0]; if(!file) return;
+    var rd=new FileReader(); rd.onload=function(){
+      var res; try{ res=importPilotlog(String(rd.result)); }catch(err){ console.error(err); toast('Import failed'); return; }
+      if(res.error){ toast(res.error); return; }
+      if(!(res.flights.length+res.sims.length)){ toast('Nothing new ('+res.skipped+' duplicates)'); return; }
+      if(!confirm('Import '+res.flights.length+' flights, '+res.sims.length+' sim sessions, '+res.newAc.length+' aircraft?\n('+res.skipped+' duplicates skipped)')) return;
+      var items=[];
+      res.newAc.forEach(function(a){ items.push({store:'aircraft',obj:a}); });
+      res.flights.forEach(function(f){ items.push({store:'flights',obj:f}); });
+      res.sims.forEach(function(s){ items.push({store:'sim',obj:s}); });
+      bulkWrite(items).then(reload).then(function(){ go('dash'); toast('Imported '+res.flights.length+' flights · '+res.sims.length+' sim'); })
+        .catch(function(err){ console.error(err); toast('Import write failed'); });
+    }; rd.readAsText(file); e.target.value='';
+  });
+
   /* ---------- boot ---------- */
   function boot(){ return openDB().then(reload).then(function(){ go('dash'); }); }
-  if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('DB 초기화 실패'); }); }
-  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,S:S};
+  if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
+  window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,localClock:localClock,S:S};
 
   if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
 })();

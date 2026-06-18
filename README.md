@@ -1,70 +1,39 @@
-# SH Pilot Logbook (v0.1 + PDF)
+# SH Pilot Logbook — v0.3
 
-조종사 비행 로그북 · 오프라인 PWA · 단일파일 중심
+오프라인 단일 페이지 PWA 전자 비행일지. 모든 데이터는 기기 안(IndexedDB)에만 저장되며 서버로 전송되지 않습니다.
 
-## 구성 파일
+## v0.3 변경점 (Pilotlog UI 반영)
+- **CrewLounge PILOTLOG CSV 가져오기**: More → Data → *Import CrewLounge PILOTLOG CSV*. 비행·시뮬레이터·기재가 한 번에 들어오고, 기존 로그북과 겹치는 기록은 자동으로 건너뜁니다.
+  - 시간은 분 단위, OUT/IN은 UTC `H:MM`로 해석, autoland는 `TAG_APP`의 `AL` 토큰으로 환산, multi-pilot은 `AC_MP`로 판별합니다.
+- **My Total Time 대시보드** (파이차트 없음, 막대·숫자): Grand total(Aircraft / Sim / Total), Function(PIC·PICUS·SIC·DUAL·RELIEF), Flight condition(NIGHT·DAY·ACTUAL·SIM INST·CROSS CTRY), Currencies(TO/LDG day·night·AUTOLAND), Aircraft model 분해. 상단 All / Aircraft / Simulator 토글.
+- **비행 입력 폼**: OUT/IN 아래 **Local 시각** 표시(공항 타임존 자동), **ACTUAL INSTRUMENT / SIMULATED INSTRUMENT** 분리, **TASK(PF/PM)**, **Paste from last flight**(직전 비행 복사 → 출발지는 직전 도착지로).
+- **비행 목록**: 카드형(날짜·편명/노선·기종/등록·OUT–IN·블록), 시뮬레이터는 보라색 카드.
+- Multi-pilot은 **기재 속성**(Aircraft의 Multi-pilot)으로만 관리하고, 비행마다 입력하던 체크박스는 제거했습니다(공항 운항 특성상 중복 입력 방지).
+
+## 기능 요약
+- 비행/시뮬레이터/기재/자격(면장·신검·교육) 관리, 90일 착륙·야간·autoland recency, 자격 만료 D-day.
+- 공항 IATA→ICAO 자동 변환(예: ICN→RKSI), OUT/IN으로 블록타임 자동 계산.
+- PDF 출력 3종: EASA / FAA / GCAA (가로 A4 원장 + 합계/요약 페이지, 영문).
+- JSON 백업/복원, CSV 내보내기.
+
+## 설치 (GitHub Pages)
+1. 이 폴더의 모든 파일을 저장소 루트(또는 /docs)에 업로드합니다. 폴더 구조(특히 lib/)를 그대로 유지하세요.
+2. Settings → Pages → Branch 지정 후 배포.
+3. 배포 URL을 모바일 브라우저로 열고 홈 화면에 추가하면 앱처럼 전체화면·오프라인 동작합니다.
+
+## 파일
 ```
-index.html              앱 본체 (UI + 로직, IndexedDB 저장)
-manifest.webmanifest    PWA 설치 정보
-sw.js                   서비스워커 (오프라인 캐시)
-icon.svg, icon-maskable.svg   앱 아이콘
-lib/jspdf.umd.min.js    PDF 생성 라이브러리 (로컬 동봉, 오프라인 동작)
-lib/logbook-pdf.js      EASA/FAA/GCAA 출력 엔진
+index.html              앱 본체 (단일 파일)
+manifest.webmanifest    PWA 매니페스트
+sw.js                   서비스워커(오프라인 캐시)
+icon.svg / icon-maskable.svg
+lib/jspdf.umd.min.js    PDF 엔진(jsPDF)
+lib/logbook-pdf.js      EASA/FAA/GCAA 원장 생성기
+lib/airports.js         공항 ICAO/IATA/타임존 DB (IATA 보유 7,914개)
 ```
-모든 경로는 상대경로이므로 폴더째 어디에 올려도 동작합니다.
 
----
-
-## GitHub Pages로 배포 (폰에서 설치해서 쓰기)
-
-### 방법 A — 웹에서 업로드 (가장 간단)
-1. github.com 로그인 → 우상단 **+ → New repository**
-2. 이름 예: `logbook` → **Public** → Create repository
-3. 빈 레포 화면에서 **uploading an existing file** 클릭
-4. 이 zip의 **내용물 전체**(index.html, sw.js, lib 폴더 등)를 드래그해서 업로드 → **Commit changes**
-   - ⚠️ `sh-pilot-logbook` 폴더 자체가 아니라, 그 **안의 파일들**을 올립니다. (index.html이 레포 루트에 있어야 함)
-5. 레포 상단 **Settings → Pages**
-6. **Source: Deploy from a branch** → Branch: `main` / `/ (root)` → **Save**
-7. 1~2분 뒤 같은 화면에 주소가 뜸:
-   `https://<사용자명>.github.io/logbook/`
-
-### 방법 B — git (터미널)
-```bash
-git init
-git add .
-git commit -m "logbook v0.1"
-git branch -M main
-git remote add origin https://github.com/<사용자명>/logbook.git
-git push -u origin main
-```
-이후 Settings → Pages에서 위 6~7번과 동일하게 설정.
-
-### 업데이트할 때
-파일을 다시 올리고 commit하면 됩니다. 새 버전이 안 보이면 `sw.js`의 `CACHE` 값(`logbook-v0-1`)을 올려서(예: `v0-2`) 캐시를 갱신하세요.
-
----
-
-## 폰에 앱처럼 설치 (PWA)
-
-- **iPhone (Safari)**: 배포 주소 열기 → 공유 버튼 → **홈 화면에 추가**
-- **Android (Chrome)**: 주소 열기 → 메뉴(⋮) → **앱 설치 / 홈 화면에 추가**
-
-설치하면 전체화면 앱으로 뜨고, 한 번 연 뒤에는 **오프라인에서도** 동작합니다. 데이터는 기기 내부(IndexedDB)에만 저장됩니다.
-
-> ⚠️ 데이터는 이 기기/브라우저에만 있습니다. 기기 변경·캐시 삭제에 대비해 **더보기 → JSON 백업**을 주기적으로 받아두세요. 복원은 같은 화면의 JSON 복원으로 합니다.
-
----
-
-## PDF 출력
-더보기 → 조종사 이름/라이선스 입력 후 **EASA / FAA / GCAA** 버튼.
-- 원장(좌우 스크롤형 표) + 페이지별/누계 합계
-- 요약 페이지: 총계, 기종별 집계, 시뮬레이터 요약, 증명·서명란
-- 국제 제출을 위해 **영문**으로 출력됩니다(한글 비고는 표시 안 될 수 있음).
-- GCAA는 라이선스 총계와 대조하라는 안내가 요약 페이지에 추가됩니다. 제출 전 실제 GCAA/소속 항공사 요구 양식과 한 번 더 대조하세요.
-
-## 로컬에서 바로 열기
-`index.html`을 더블클릭하면 대부분 동작하지만, 서비스워커/일부 기능은 `http(s)`에서만 완전히 동작합니다. 폰 설치 전 PC 확인은 간단한 로컬 서버 권장:
-```bash
-python3 -m http.server 8000
-# http://localhost:8000 접속
-```
+## 참고
+- Local 시각은 IATA 코드가 있는 공항만 지원합니다(소형 비IATA 공항은 UTC만 표시).
+- PDF는 영문 전용입니다(한글 비고는 표시되지 않을 수 있음 — 의도된 동작).
+- GCAA 제출용 정식 양식은 EASA식 원장 + 면장 대조 주석으로 구성했습니다. 공식 제출 전 최신 GCAA 서식을 한 번 확인하세요.
+- 데이터는 기기에만 저장되므로 정기적으로 JSON 백업을 권장합니다.

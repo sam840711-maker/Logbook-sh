@@ -40,11 +40,12 @@
       { grp: 'LANDINGS', lab: 'DAY', w: 9, a: 'r', sum: function (f) { return f.dLdg || 0; }, isInt: true, get: function (f) { return f.dLdg || ''; } },
       { grp: 'LANDINGS', lab: 'NGT', w: 9, a: 'r', sum: function (f) { return f.nLdg || 0; }, isInt: true, get: function (f) { return f.nLdg || ''; } },
       { grp: 'CONDITION', lab: 'NIGHT', w: 12, a: 'r', sum: function (f) { return f.night || 0; }, get: function (f) { return fmtHM(f.night); } },
-      { grp: 'CONDITION', lab: 'IFR', w: 12, a: 'r', sum: function (f) { return f.ifr || 0; }, get: function (f) { return fmtHM(f.ifr); } },
-      { grp: 'FUNCTION', lab: 'PIC', w: 11, a: 'r', sum: function (f) { return f.pic || 0; }, get: function (f) { return fmtHM(f.pic); } },
-      { grp: 'FUNCTION', lab: 'CO', w: 11, a: 'r', sum: function (f) { return f.sic || 0; }, get: function (f) { return fmtHM(f.sic); } },
-      { grp: 'FUNCTION', lab: 'DUAL', w: 11, a: 'r', sum: function (f) { return f.dual || 0; }, get: function (f) { return fmtHM(f.dual); } },
-      { grp: 'FUNCTION', lab: 'INST', w: 11, a: 'r', sum: function (f) { return f.instr || 0; }, get: function (f) { return fmtHM(f.instr); } },
+      { grp: 'CONDITION', lab: 'INST', w: 12, a: 'r', sum: function (f) { return f.actual || f.ifr || 0; }, get: function (f) { return fmtHM(f.actual || f.ifr); } },
+      { grp: 'FUNCTION', lab: 'PIC', w: 10, a: 'r', sum: function (f) { return f.pic || 0; }, get: function (f) { return fmtHM(f.pic); } },
+      { grp: 'FUNCTION', lab: 'PICUS', w: 10, a: 'r', sum: function (f) { return f.picus || 0; }, get: function (f) { return fmtHM(f.picus); } },
+      { grp: 'FUNCTION', lab: 'CO', w: 10, a: 'r', sum: function (f) { return f.sic || 0; }, get: function (f) { return fmtHM(f.sic); } },
+      { grp: 'FUNCTION', lab: 'DUAL', w: 10, a: 'r', sum: function (f) { return f.dual || 0; }, get: function (f) { return fmtHM(f.dual); } },
+      { grp: 'FUNCTION', lab: 'INST', w: 10, a: 'r', sum: function (f) { return f.instr || 0; }, get: function (f) { return fmtHM(f.instr); } },
       { lab: 'REMARKS', w: 0, a: 'l', get: function (f) { return remark(f); } }
     ];
   }
@@ -61,9 +62,10 @@
       { grp: 'CLASS', lab: 'SE', w: 12, a: 'r', sum: seMin, get: function (f) { return fmtHM(seMin(f)); } },
       { grp: 'CLASS', lab: 'ME', w: 12, a: 'r', sum: meMin, get: function (f) { return fmtHM(meMin(f)); } },
       { grp: 'CONDITIONS', lab: 'NIGHT', w: 12, a: 'r', sum: function (f) { return f.night || 0; }, get: function (f) { return fmtHM(f.night); } },
-      { grp: 'CONDITIONS', lab: 'INSTR', w: 12, a: 'r', sum: function (f) { return f.ifr || 0; }, get: function (f) { return fmtHM(f.ifr); } },
+      { grp: 'CONDITIONS', lab: 'INSTR', w: 12, a: 'r', sum: function (f) { return f.actual || f.ifr || 0; }, get: function (f) { return fmtHM(f.actual || f.ifr); } },
       { grp: 'CONDITIONS', lab: 'XC', w: 12, a: 'r', sum: function (f) { return f.xc ? (f.total || 0) : 0; }, get: function (f) { return f.xc ? fmtHM(f.total) : ''; } },
       { grp: 'FUNCTION', lab: 'PIC', w: 11, a: 'r', sum: function (f) { return f.pic || 0; }, get: function (f) { return fmtHM(f.pic); } },
+      { grp: 'FUNCTION', lab: 'PICUS', w: 11, a: 'r', sum: function (f) { return f.picus || 0; }, get: function (f) { return fmtHM(f.picus); } },
       { grp: 'FUNCTION', lab: 'SIC', w: 11, a: 'r', sum: function (f) { return f.sic || 0; }, get: function (f) { return fmtHM(f.sic); } },
       { grp: 'FUNCTION', lab: 'DUAL', w: 11, a: 'r', sum: function (f) { return f.dual || 0; }, get: function (f) { return fmtHM(f.dual); } },
       { grp: 'FUNCTION', lab: 'INST', w: 11, a: 'r', sum: function (f) { return f.instr || 0; }, get: function (f) { return fmtHM(f.instr); } },
@@ -75,6 +77,7 @@
   function remark(f) {
     var bits = [];
     if (f.fno) bits.push(f.fno);
+    if (f.relief) bits.push('RLF ' + fmtHM(f.relief));
     if (f.auto) bits.push('A/L x' + f.auto);
     if (f.appr) bits.push(f.appr);
     if (f.rem) bits.push(f.rem);
@@ -228,7 +231,9 @@
       ['Total Flight Time', fmtHMz(T.total)],
       ['Multi-Pilot Time', fmtHMz(T.mp)],
       ['PIC', fmtHMz(T.pic)],
+      ['PICUS', fmtHMz(T.picus)],
       ['Co-Pilot / SIC', fmtHMz(T.sic)],
+      ['Cruise Relief', fmtHMz(T.relief)],
       ['Dual', fmtHMz(T.dual)],
       ['Instructor', fmtHMz(T.instr)],
       ['Night', fmtHMz(T.night)],
@@ -304,10 +309,11 @@
   }
 
   function grand(flights) {
-    var T = { total: 0, mp: 0, pic: 0, sic: 0, dual: 0, instr: 0, night: 0, ifr: 0, xc: 0, dLdg: 0, nLdg: 0, auto: 0, n: 0 };
+    var T = { total: 0, mp: 0, pic: 0, sic: 0, picus: 0, relief: 0, dual: 0, instr: 0, night: 0, ifr: 0, xc: 0, dLdg: 0, nLdg: 0, auto: 0, n: 0 };
     flights.forEach(function (f) {
       T.total += f.total || 0; T.mp += mpMin(f); T.pic += f.pic || 0; T.sic += f.sic || 0;
-      T.dual += f.dual || 0; T.instr += f.instr || 0; T.night += f.night || 0; T.ifr += f.ifr || 0;
+      T.picus += f.picus || 0; T.relief += f.relief || 0;
+      T.dual += f.dual || 0; T.instr += f.instr || 0; T.night += f.night || 0; T.ifr += (f.actual || f.ifr || 0);
       T.xc += f.xc ? (f.total || 0) : 0; T.dLdg += f.dLdg || 0; T.nLdg += f.nLdg || 0; T.auto += f.auto || 0; T.n++;
     });
     return T;
