@@ -131,6 +131,8 @@
   .stp .stpb:active{background:#1c2a33}
   .stp .stpi{flex:1; text-align:center}
   .sigpad{display:block; width:100%; height:96px; background:#fff; border:1px solid var(--line-soft); border-radius:10px; touch-action:none}
+  .sigpad.locked{pointer-events:none; opacity:.92}
+  .sigpad.editing{border-color:#5fd0e6; box-shadow:0 0 0 2px rgba(95,208,230,.25)}
 
   .empty{text-align:center; color:var(--ink-faint); font-size:13px; padding:30px 16px; border:1px dashed var(--line);
     border-radius:var(--r); background:var(--panel-2)}
@@ -333,8 +335,8 @@
         <div class="fgroup" style="margin-bottom:8px"><label>Licence number</label><input class="fld" id="p_lic" placeholder="KR-ATPL-..."></div>
       </div>
       <div class="fgroup" style="margin-bottom:8px"><label>Signature (sign below — printed on every PDF page)</label>
-        <canvas id="p_sig" class="sigpad" width="360" height="96"></canvas>
-        <div style="display:flex; gap:8px; align-items:center; margin-top:6px"><button class="btn ghost sm" id="p_sigClear" type="button">Clear signature</button><span class="fhint" id="p_sigSaved"></span></div>
+        <canvas id="p_sig" class="sigpad locked" width="360" height="96"></canvas>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:6px"><button class="btn ghost sm" id="p_sigEdit" type="button">Edit signature</button><button class="btn ghost sm" id="p_sigClear" type="button" disabled>Clear</button><span class="fhint" id="p_sigSaved"></span></div>
       </div>
       <button class="btn primary" id="saveSettings" style="width:100%; margin:4px 0 6px">Save settings</button>
       <div class="fhint" id="settingsSaved" style="margin-bottom:6px"></div>
@@ -406,10 +408,6 @@
       <div class="fgroup"><label class="lbll">ACTUAL INST <span class="eqb"><input type="checkbox" class="lnk" data-for="f_actual">= blk</span></label><input class="fld mono dur" id="f_actual" placeholder="0:00"></div>
     </div>
     <div class="frow c2">
-      <div class="fgroup"><label>SIMULATED INST</label><input class="fld mono dur" id="f_sim" placeholder="0:00"></div>
-      <div class="fgroup"><label>IFR (optional)</label><input class="fld mono dur" id="f_ifr" placeholder="0:00"></div>
-    </div>
-    <div class="frow c2">
       <div class="fgroup"><label class="lbll">PICUS <span class="eqb"><input type="checkbox" class="lnk" data-for="f_picus">= blk</span></label><input class="fld mono dur" id="f_picus" placeholder="0:00"></div>
       <div class="fgroup"><label class="lbll">RELIEF <span class="eqb"><input type="checkbox" class="lnk" data-for="f_relief">= blk</span></label><input class="fld mono dur" id="f_relief" placeholder="0:00"></div>
     </div>
@@ -434,8 +432,6 @@
 
     <div class="fdiv"></div>
     <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc"><span>Cross-country</span></label>
-    <div class="fgroup"><label>Flight rule</label>
-      <select class="fld" id="f_rule"><option value="IFR">IFR</option><option value="VFR">VFR</option></select></div>
     <div class="fgroup"><label>Remarks</label><textarea class="fld" id="f_rem" placeholder="Training notes, delays, abnormals…"></textarea></div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="fSave">Save</button></div>
@@ -621,8 +617,8 @@
       default: return {from:null, to:null};
     }
   }
-  function bar(label,val,max,color,isCount){ var pct=max>0?Math.round((val/max)*100):0; if(pct>100)pct=100;
-    var disp=isCount?String(val||0):fmtHM(val);
+  function bar(label,val,max,color,isCount,dispOverride){ var pct=max>0?Math.round((val/max)*100):0; if(pct>100)pct=100;
+    var disp=dispOverride!=null?dispOverride:(isCount?String(val||0):fmtHM(val));
     return '<div class="bar"><div class="bl">'+esc(label)+'</div><div class="bt"><div class="bf '+(color||'')+'" style="width:'+pct+'%"></div></div><div class="bv">'+disp+'</div></div>'; }
   function grandCell(cls,k,n,v){ return '<div class="cell '+cls+'"><div class="k">'+esc(k)+'</div>'+(n?'<div class="n">'+esc(n)+'</div>':'')+'<div class="v">'+esc(v)+'</div></div>'; }
   function renderDash(){
@@ -652,16 +648,17 @@
     var dayMin=Math.max(t.total-t.night,0);
     var cmax=Math.max(t.night,dayMin,t.actual,t.xc,1);
     $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,'']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
-    // currencies: follow the Aircraft/Simulator toggle so sim and real are never mixed
-    var curSrc = (dashScope==='sim') ? sm : fl;
-    var cc=curCounts(curSrc);
-    var curLbl = (dashScope==='sim') ? 'Simulator' : 'Actual flight';
-    $('#dashCurrLbl').textContent = curLbl;
-    var curr=[['TO-DAY',cc.toDay],['LDG-DAY',cc.ldgDay],['TO-NIGHT',cc.toNight],['LDG-NIGHT',cc.ldgNight],['AUTOLAND',cc.auto]];
-    var crmax=Math.max.apply(null,curr.map(function(c){return c[1];}).concat([1]));
-    $('#dashCurr').innerHTML=curr.map(function(c){return bar(c[0],c[1],crmax,'green',true);}).join('');
-    // cluster landings reflect the same scope source
-    $('#dashLdg').textContent = (dashScope==='sim') ? cc.ldg : t.ldg;
+    // currencies: Aircraft / Simulator separated; All shows "aircraft / sim"
+    var ccA=curCounts(fl), ccS=curCounts(sm); var sc=dashScope;
+    $('#dashCurrLbl').textContent = sc==='sim'?'Simulator':sc==='ac'?'Aircraft':'Aircraft / Sim';
+    var cKeys=[['TO-DAY','toDay'],['LDG-DAY','ldgDay'],['TO-NIGHT','toNight'],['LDG-NIGHT','ldgNight'],['AUTOLAND','auto']];
+    var cVals=cKeys.map(function(k){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0; return sc==='sim'?s:sc==='ac'?a:(a+s); });
+    var crmax=Math.max.apply(null,cVals.concat([1]));
+    $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ccA[k[1]]||0, s=ccS[k[1]]||0;
+      var disp = sc==='all' ? (a+' / '+s) : undefined;
+      return bar(k[0],cVals[i],crmax,'green',true,disp); }).join('');
+    // cluster landings reflect scope (All = aircraft + sim)
+    $('#dashLdg').textContent = sc==='sim'? ccS.ldg : sc==='ac'? ccA.ldg : (ccA.ldg+ccS.ldg);
     var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
     var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
@@ -684,7 +681,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3k · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3n · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -772,12 +769,12 @@
     g('f_pic').value=f&&f.pic?fmtHM(f.pic):''; g('f_sic').value=f&&f.sic?fmtHM(f.sic):'';
     g('f_picus').value=f&&f.picus?fmtHM(f.picus):''; g('f_relief').value=f&&f.relief?fmtHM(f.relief):'';
     g('f_night').value=f&&f.night?fmtHM(f.night):'';
-    g('f_actual').value=f&&f.actual?fmtHM(f.actual):''; g('f_sim').value=f&&f.simInst?fmtHM(f.simInst):''; g('f_ifr').value=f&&f.ifr?fmtHM(f.ifr):'';
+    g('f_actual').value=f&&f.actual?fmtHM(f.actual):'';
     g('f_dual').value=f&&f.dual?fmtHM(f.dual):''; g('f_instr').value=f&&f.instr?fmtHM(f.instr):'';
     g('f_picname').value=f?(f.picName||''):'';
     g('f_dto').value=f&&f.dTo?f.dTo:''; g('f_dldg').value=f&&f.dLdg?f.dLdg:''; g('f_nto').value=f&&f.nTo?f.nTo:''; g('f_nldg').value=f&&f.nLdg?f.nLdg:'';
     g('f_auto').value=f&&f.auto?f.auto:''; g('f_appr').value=f?(f.appr||''):''; g('f_task').value=f?(f.task||''):'';
-    g('f_xc').checked=f?!!f.xc:false; g('f_rule').value=f?(f.rule||'IFR'):'IFR';
+    g('f_xc').checked=f?!!f.xc:false;
     g('f_rem').value=f?(f.rem||''):'';
     $$('.lnk').forEach(function(c){ c.checked=false; });
     syncAcType(); updLocal();
@@ -820,6 +817,7 @@
 
   $('#fSave').addEventListener('click',function(){
     var reg=$('#f_reg').value.trim().toUpperCase(); var a=acByReg(reg);
+    var prev=editFid?(S.flights.filter(function(x){return x.id===editFid;})[0]||{}):{};
     var off=parseClock($('#f_off').value), on=parseClock($('#f_on').value);
     var total=parseDur($('#f_total').value); if(!total && off!=null && on!=null) total=(on-off+1440)%1440;
     var obj={ id:editFid||uid(), _c:(editFid?undefined:Date.now()),
@@ -828,13 +826,13 @@
       dep:resolveApt($('#f_dep').value), arr:resolveApt($('#f_arr').value),
       off:off, on:on, total:total,
       pic:parseDur($('#f_pic').value), sic:parseDur($('#f_sic').value),
-      night:parseDur($('#f_night').value), actual:parseDur($('#f_actual').value), simInst:parseDur($('#f_sim').value), ifr:parseDur($('#f_ifr').value),
+      night:parseDur($('#f_night').value), actual:parseDur($('#f_actual').value), simInst:prev.simInst||0, ifr:prev.ifr||0,
       dual:parseDur($('#f_dual').value), instr:parseDur($('#f_instr').value),
       picus:parseDur($('#f_picus').value), relief:parseDur($('#f_relief').value),
       picName:$('#f_picname').value.trim(),
       dTo:num($('#f_dto').value), dLdg:num($('#f_dldg').value), nTo:num($('#f_nto').value), nLdg:num($('#f_nldg').value),
       auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:$('#f_task').value,
-      acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:$('#f_rule').value, rem:$('#f_rem').value.trim() };
+      acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:(prev.rule||'IFR'), rem:$('#f_rem').value.trim() };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
     put('flights',obj).then(reload).then(function(){ closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); });
   });
@@ -953,16 +951,20 @@
   }
   if($('#saveSettings')) $('#saveSettings').addEventListener('click', saveSettings);
   (function initSig(){
-    var cv=$('#p_sig'); if(!cv) return; var ctx=null; try{ ctx=cv.getContext('2d'); }catch(e){}; if(!ctx) return;
-    function base(){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1320'; }
+    var cv=$('#p_sig'); if(!cv) return; var ctx=null; try{ ctx=cv.getContext('2d'); }catch(e){}
+    function base(){ if(!ctx) return; ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1320'; }
     base();
-    var pr=loadProfile(); if(pr.sig){ try{ var im=new Image(); im.onload=function(){ try{ ctx.drawImage(im,0,0,cv.width,cv.height); }catch(e){} }; im.src=pr.sig; $('#p_sigSaved').textContent='Saved signature loaded'; }catch(e){} }
-    var drawing=false, last=null, dirty=false;
+    var pr=loadProfile(); if(pr.sig && ctx){ try{ var im=new Image(); im.onload=function(){ try{ ctx.drawImage(im,0,0,cv.width,cv.height); }catch(e){} }; im.src=pr.sig; $('#p_sigSaved').textContent='Saved signature loaded'; }catch(e){} }
+    var drawing=false, last=null, dirty=false, locked=true;
     function pos(e){ var r=cv.getBoundingClientRect(); var t=(e.touches&&e.touches[0])?e.touches[0]:e; return {x:(t.clientX-r.left)*(cv.width/r.width), y:(t.clientY-r.top)*(cv.height/r.height)}; }
-    function start(e){ e.preventDefault(); drawing=true; last=pos(e); }
-    function move(e){ if(!drawing) return; e.preventDefault(); var p2=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); last=p2; dirty=true; }
+    function start(e){ if(locked||!ctx) return; e.preventDefault(); drawing=true; last=pos(e); }
+    function move(e){ if(locked||!drawing||!ctx) return; e.preventDefault(); var p2=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); last=p2; dirty=true; }
     function save(){ try{ var p=loadProfile(); p.sig=cv.toDataURL('image/png'); localStorage.setItem(PROFILE_K, JSON.stringify(p)); $('#p_sigSaved').textContent='Signature saved'; }catch(e){} }
     function end(){ if(!drawing) return; drawing=false; if(dirty) save(); }
+    function setLocked(v){ locked=v; cv.classList.toggle('locked',v); cv.classList.toggle('editing',!v);
+      if($('#p_sigClear')) $('#p_sigClear').disabled=v; if($('#p_sigEdit')) $('#p_sigEdit').textContent=v?'Edit signature':'Done';
+      if(v){ if(dirty){ save(); dirty=false; } } else { $('#p_sigSaved').textContent='Editing — draw your signature'; } }
+    if($('#p_sigEdit')) $('#p_sigEdit').addEventListener('click',function(){ setLocked(!locked); });
     cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
     cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
     $('#p_sigClear').addEventListener('click',function(){ base(); dirty=false; try{ var p=loadProfile(); delete p.sig; localStorage.setItem(PROFILE_K, JSON.stringify(p)); }catch(e){} $('#p_sigSaved').textContent='Signature cleared'; });
