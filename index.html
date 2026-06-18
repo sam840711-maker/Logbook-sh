@@ -214,13 +214,12 @@
   .seg button{flex:1; height:34px; border-radius:8px; color:var(--ink-dim); font-size:13px}
   .seg button.on{background:var(--cyan); color:#04161b; font-weight:600}
   .logf{background:var(--panel); border:1px solid var(--line-soft); border-radius:12px; padding:10px; margin-bottom:12px}
-  .logf .qrow{display:flex; gap:8px}
-  .logf .qrow .fld{flex:1}
-  .logf .qclr{flex:0 0 auto; width:46px; height:46px; border-radius:10px; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-dim); font-size:18px}
-  .logf select.fld{flex:0 0 96px; width:96px}
+  .logf .fgroup{margin-bottom:8px}
+  .logf .fgroup:last-child{margin-bottom:0}
   .chiprow{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
   .chip{height:30px; padding:0 12px; border-radius:15px; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-dim); font-size:12px}
   .chip.on{background:var(--cyan); color:#04161b; border-color:var(--cyan); font-weight:600}
+  .chip.qclr{margin-left:auto}
   .logcount{color:var(--ink-faint); font-size:11px; font-family:var(--mono); margin:2px 2px 10px}
   .gt{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
   .gt .cell{background:var(--panel); border:1px solid var(--line-soft); border-radius:10px; padding:11px 12px}
@@ -313,16 +312,16 @@
     <section class="view" id="view-log">
       <p class="eyebrow">Logbook</p>
       <div class="logf">
-        <div class="qrow">
-          <input class="fld" id="logQ" placeholder="Search flight no, reg, airport, type, pilot, remarks">
-          <select class="fld" id="logYear"><option value="">All yr</option></select>
-          <button type="button" class="qclr" id="logClr" title="Clear">&times;</button>
+        <div class="frow c2">
+          <div class="fgroup"><label>YEAR</label><select class="fld" id="logYear"><option value="">All</option></select></div>
+          <div class="fgroup"><label>MONTH</label><select class="fld" id="logMonth"><option value="">All</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select></div>
         </div>
+        <div class="fgroup"><label>AIRCRAFT</label><input class="fld mono" id="logReg" placeholder="aircraft registration"></div>
+        <div class="fgroup"><label>AIRFIELD</label><input class="fld mono" id="logApt" placeholder="ICAO, IATA"></div>
+        <div class="fgroup"><label>OTHER</label><input class="fld" id="logQ" placeholder="flight no, pilot, remarks, type"></div>
         <div class="chiprow">
-          <button type="button" class="chip" id="logDL" data-fil="dldg">Day LDG</button>
-          <button type="button" class="chip" id="logNL" data-fil="nldg">Night LDG</button>
           <button type="button" class="chip" id="logAL" data-fil="auto">Autoland</button>
-          <button type="button" class="chip" id="logXC" data-fil="xc">Cross-ctry</button>
+          <button type="button" class="chip qclr" id="logClr">Clear filters</button>
         </div>
       </div>
       <div class="gt" id="logTotals" style="grid-template-columns:1fr 1fr; margin-bottom:12px"></div>
@@ -719,7 +718,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3s · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3t · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -739,16 +738,19 @@
   }
 
   /* ---------- LOGBOOK ---------- */
-  var logFilter={q:'',year:'',dldg:false,nldg:false,auto:false,xc:false};
+  var logFilter={year:'',month:'',reg:'',apt:'',q:'',auto:false};
   function aptIata(icao){ var a=window.AIRPORTS&&window.AIRPORTS[icao]; return a&&a[0]?a[0]:''; }
   function flightMatch(f){
     if(logFilter.year && (f.date||'').slice(0,4)!==logFilter.year) return false;
-    if(logFilter.dldg && !(f.dLdg>0)) return false;
-    if(logFilter.nldg && !(f.nLdg>0)) return false;
+    if(logFilter.month && (f.date||'').slice(5,7)!==logFilter.month) return false;
     if(logFilter.auto && !(f.auto>0)) return false;
-    if(logFilter.xc && !f.xc) return false;
+    if(logFilter.reg && (f.reg||'').toUpperCase().indexOf(logFilter.reg)<0) return false;
+    if(logFilter.apt){
+      var fields=[f.dep,f.arr,aptIata(f.dep),aptIata(f.arr)].join(' ').toUpperCase();
+      if(fields.indexOf(logFilter.apt)<0) return false;
+    }
     if(logFilter.q){
-      var hay=[f.fno,f.reg,f.dep,f.arr,aptIata(f.dep),aptIata(f.arr),f.acType,f.picName,f.rem].join(' ').toLowerCase();
+      var hay=[f.fno,f.picName,f.rem,f.acType,f.dep,f.arr].join(' ').toLowerCase();
       var terms=logFilter.q.toLowerCase().split(/\s+/).filter(Boolean);
       if(!terms.every(function(t){return hay.indexOf(t)>=0;})) return false;
     }
@@ -759,9 +761,10 @@
     var ys={}; S.flights.forEach(function(f){ var y=(f.date||'').slice(0,4); if(y) ys[y]=1; });
     var list=Object.keys(ys).sort().reverse();
     var cur=logFilter.year;
-    sel.innerHTML='<option value="">All yr</option>'+list.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+    sel.innerHTML='<option value="">All</option>'+list.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
     sel.value=cur;
   }
+  function filterActive(){ return logFilter.year||logFilter.month||logFilter.reg||logFilter.apt||logFilter.q||logFilter.auto; }
   function renderLog(){
     fillLogYears();
     if(!S.flights.length){ $('#logList').innerHTML=''; $('#logTotals').innerHTML=''; $('#logCount').textContent='';
@@ -770,20 +773,20 @@
     $('#logEmpty').innerHTML = list.length ? '' : '<div class="empty" style="margin-top:12px"><b>No matches</b>Adjust the filters above.</div>';
     var t=totals(list);
     $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n));
-    var active=logFilter.q||logFilter.year||logFilter.dldg||logFilter.nldg||logFilter.auto||logFilter.xc;
-    $('#logCount').textContent = active ? ('Showing '+list.length+' of '+S.flights.length) : '';
+    $('#logCount').textContent = filterActive() ? ('Showing '+list.length+' of '+S.flights.length) : '';
     $('#logList').innerHTML=list.map(cardFlight).join('');
   }
   function initLogFilter(){
-    var q=$('#logQ'); if(q) q.addEventListener('input',function(){ logFilter.q=this.value.trim(); renderLog(); });
     var y=$('#logYear'); if(y) y.addEventListener('change',function(){ logFilter.year=this.value; renderLog(); });
-    $$('.logf .chip').forEach(function(c){ c.addEventListener('click',function(){
-      var k=c.getAttribute('data-fil'); logFilter[k]=!logFilter[k]; c.classList.toggle('on',logFilter[k]); renderLog();
-    }); });
+    var mo=$('#logMonth'); if(mo) mo.addEventListener('change',function(){ logFilter.month=this.value; renderLog(); });
+    var rg=$('#logReg'); if(rg) rg.addEventListener('input',function(){ logFilter.reg=this.value.trim().toUpperCase(); renderLog(); });
+    var ap=$('#logApt'); if(ap) ap.addEventListener('input',function(){ logFilter.apt=this.value.trim().toUpperCase(); renderLog(); });
+    var q=$('#logQ'); if(q) q.addEventListener('input',function(){ logFilter.q=this.value.trim(); renderLog(); });
+    var al=$('#logAL'); if(al) al.addEventListener('click',function(){ logFilter.auto=!logFilter.auto; al.classList.toggle('on',logFilter.auto); renderLog(); });
     var clr=$('#logClr'); if(clr) clr.addEventListener('click',function(){
-      logFilter={q:'',year:'',dldg:false,nldg:false,auto:false,xc:false};
-      if(q) q.value=''; if(y) y.value='';
-      $$('.logf .chip').forEach(function(c){ c.classList.remove('on'); });
+      logFilter={year:'',month:'',reg:'',apt:'',q:'',auto:false};
+      if(y) y.value=''; if(mo) mo.value=''; if(rg) rg.value=''; if(ap) ap.value=''; if(q) q.value='';
+      if(al) al.classList.remove('on');
       renderLog();
     });
   }
