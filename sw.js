@@ -18,24 +18,29 @@ self.addEventListener('activate', (e) => {
 function isHTML(req) {
   return req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') >= 0 || /\.html(\?|$)/.test(req.url);
 }
+// Frequently-changing files: always fetch fresh when online (cache only as offline fallback),
+// so an upload applies immediately and the cache can never freeze on an old build.
+function isFresh(url) {
+  return /\/version\.js(\?|$)/.test(url) || /\/lib\/logbook-pdf\.js(\?|$)/.test(url);
+}
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
 
-  // HTML (the app itself): network-first so updates show immediately; cache only as offline fallback.
-  if (isHTML(req)) {
+  // Network-first: the app HTML + the small frequently-changing scripts.
+  if (isHTML(req) || isFresh(req.url)) {
     e.respondWith(
       fetch(req).then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+        caches.open(CACHE).then((c) => c.put(isHTML(req) ? './index.html' : req, copy)).catch(() => {});
         return res;
-      }).catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html')))
+      }).catch(() => caches.match(req).then((hit) => hit || (isHTML(req) ? caches.match('./index.html') : undefined)))
     );
     return;
   }
 
-  // Static libs/icons: cache-first (they are versioned by CACHE name).
+  // Cache-first: large static assets (fonts, jspdf, airports, icons) — versioned by CACHE name.
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
       const copy = res.clone();

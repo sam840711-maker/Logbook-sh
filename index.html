@@ -1523,7 +1523,20 @@
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
-  if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){ try{ reg.update(); }catch(e){} }).catch(function(){}); }); }
+  if('serviceWorker' in navigator){
+    var hadController = !!navigator.serviceWorker.controller;
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(refreshing) return; refreshing = true;
+      if(hadController){ try{ toast('Updating\u2026'); }catch(e){} location.reload(); } // auto-apply updates (skip on first install)
+    });
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+        try{ reg.update(); }catch(e){}
+        document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ try{ reg.update(); }catch(e){} } });
+      }).catch(function(){});
+    });
+  }
 })();
 </script>
 </body>
