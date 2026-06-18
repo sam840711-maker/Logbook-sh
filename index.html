@@ -629,10 +629,10 @@
 
   /* ---------- aggregation ---------- */
   function totals(list){
-    var t={total:0,pic:0,sic:0,night:0,ifr:0,actual:0,simInst:0,xc:0,dual:0,instr:0,picus:0,relief:0,ldg:0,auto:0,toDay:0,toNight:0,ldgDay:0,ldgNight:0,n:0};
+    var t={total:0,pic:0,sic:0,night:0,ifr:0,actual:0,simInst:0,xc:0,dual:0,instr:0,picus:0,relief:0,mp:0,ldg:0,auto:0,toDay:0,toNight:0,ldgDay:0,ldgNight:0,n:0};
     list.forEach(function(f){ t.total+=f.total||0; t.pic+=f.pic||0; t.sic+=f.sic||0; t.night+=f.night||0; t.ifr+=f.ifr||0;
       t.actual+=f.actual||0; t.simInst+=f.simInst||0;
-      t.xc+=f.xc?(f.total||0):0; t.dual+=f.dual||0; t.instr+=f.instr||0; t.picus+=f.picus||0; t.relief+=f.relief||0;
+      t.xc+=f.xc?(f.total||0):0; t.dual+=f.dual||0; t.instr+=f.instr||0; t.picus+=f.picus||0; t.relief+=f.relief||0; t.mp+=f.mp||0;
       t.toDay+=f.dTo||0; t.toNight+=f.nTo||0; t.ldgDay+=f.dLdg||0; t.ldgNight+=f.nLdg||0;
       t.ldg+=(f.dLdg||0)+(f.nLdg||0); t.auto+=f.auto||0; t.n++; });
     return t;
@@ -691,11 +691,11 @@
     var allMin=totals(S.flights).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
     $('#hdrTail').textContent=fmtHM(allMin)+' · '+(S.flights.length+S.sim.length)+'R';
 
-    var fmax=Math.max(t.pic,t.picus,t.sic,t.dual,t.relief,1);
-    $('#dashFunc').innerHTML=[['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
+    var fmax=Math.max(t.pic+t.picus,t.pic,t.picus,t.sic,t.dual,t.relief,1);
+    $('#dashFunc').innerHTML=[['PIC + PICUS',t.pic+t.picus,'green'],['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
     var dayMin=Math.max(t.total-t.night,0);
-    var cmax=Math.max(t.night,dayMin,t.actual,t.xc,1);
-    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,'']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
+    var cmax=Math.max(t.night,dayMin,t.actual,t.xc,t.mp,1);
+    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,''],['MULTI-PILOT',t.mp,'violet']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
     // currencies: Aircraft / Simulator separated; All shows "aircraft / sim"
     var ccA=curCounts(fl), ccS=curCounts(sm); var sc=dashScope;
     $('#dashCurrLbl').textContent = sc==='sim'?'Simulator':sc==='ac'?'Aircraft':'Aircraft / Sim';
@@ -729,7 +729,7 @@
       rec.push(recRow(status, c.name||c.type, meta, null, '', valTop, valBot));
     });
     $('#dashRecency').innerHTML = rec.join('') || '<div class="empty"><b>Nothing to show</b>Log flights to compute recency.</div>';
-    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.3y · offline';
+    $('#appfoot').textContent='SH PILOT LOGBOOK · v0.4a · offline';
   }
   function curCounts(list){ var c={toDay:0,toNight:0,ldgDay:0,ldgNight:0,auto:0,ldg:0};
     list.forEach(function(x){ c.toDay+=x.dTo||0; c.toNight+=x.nTo||0; c.ldgDay+=x.dLdg||0; c.ldgNight+=x.nLdg||0; c.auto+=x.auto||0; });
@@ -954,8 +954,9 @@
     var flew = (iTookOff===true)&&(iLanded===true);  // PICUS only when I did BOTH takeoff and landing
     if(iTookOff===true){ if(nightTo) f.nTo=1; else f.dTo=1; }
     if(iLanded===true){ if(nightLdg) f.nLdg=1; else f.dLdg=1; }
+    // PICUS only when I demonstrably did BOTH takeoff and landing; otherwise default to SIC=block (FO).
     if(flew){ f.picus=f.total||0; f.sic=0; }
-    else if(iTookOff===false||iLanded===false){ f.sic=f.total||0; f.picus=0; }
+    else { f.sic=f.total||0; f.picus=0; }
     return f;
   }
   function openReview(){
