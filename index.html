@@ -261,6 +261,8 @@
   .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); white-space:nowrap}
   #dashCurr .bar{grid-template-columns:92px 1fr auto}
   #dashCurr .bar .bv{padding-left:8px}
+  #dashEmp .bar{grid-template-columns:104px 1fr auto}
+  #dashEmp .bar .bv{padding-left:8px}
   @media (prefers-reduced-motion:reduce){.bar .bf{transition:none}}
   .fcard{display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:center; background:var(--panel);
     border:1px solid var(--line-soft); border-left:3px solid var(--cyan-dim); border-radius:10px; padding:10px 12px; margin-bottom:7px; cursor:pointer}
@@ -323,18 +325,16 @@
         <div class="total mono" id="dashTotal">0:00</div>
         <div class="sub"><b id="dashFlights">0</b> flights · <b id="dashLdg">0</b> landings · avg <b id="dashAvg">0:00</b>/leg</div>
       </div>
+      <div class="section-head"><h2>Aircraft model</h2></div>
+      <div class="bars" id="dashModel"></div>
       <div class="section-head"><h2>Function</h2></div>
       <div class="bars" id="dashFunc"></div>
       <div class="section-head"><h2>Flight condition</h2></div>
       <div class="bars" id="dashCond"></div>
       <div class="section-head"><h2>Currencies</h2><span class="cnt" id="dashCurrLbl" style="margin-left:auto"></span></div>
       <div class="bars" id="dashCurr"></div>
-      <div class="section-head"><h2>Aircraft model</h2></div>
-      <div class="bars" id="dashModel"></div>
       <div class="section-head"><h2>By employer</h2></div>
-      <div class="bars" id="dashEmp"></div>
-      <div class="section-head"><h2>Training vs line</h2></div>
-      <div id="dashEmpPhase"></div>
+      <div id="dashEmp"></div>
       <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
       <div class="appfoot" id="appfoot"></div>
@@ -885,18 +885,17 @@
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
-    var be={}; S.flights.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; be[k]=(be[k]||0)+(f.total||0); });
-    var emps=Object.keys(be).map(function(k){return [k,be[k]];}).sort(function(a,b){return b[1]-a[1];});
-    var emax=Math.max.apply(null,emps.map(function(m){return m[1];}).concat([1]));
-    if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){return bar(m[0],m[1],emax,'cyan');}).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
-
-    var phases=empPhaseStats().filter(function(p){return p.clearDate && p.total>0;}).sort(function(a,b){return b.total-a.total;});
-    if($('#dashEmpPhase')) $('#dashEmpPhase').innerHTML = phases.length
-      ? phases.map(function(p){ var mx=Math.max(p.training,p.line,1);
-          return '<div class="phaseblk"><div class="phasehd">'+esc(p.name)+'<span class="phasecl">cleared '+esc(p.clearDate)+'</span></div>'
-            + bar('Training ('+p.ntr+')',p.training,mx,'amber') + bar('Line ('+p.nln+')',p.line,mx,'green') + '</div>';
-        }).join('')
-      : '<div class="fhint" style="padding:4px 2px">Set a training clear date on an employer (More &#9656; Employers) to split training vs line time.</div>';
+    var phByName={}; empPhaseStats().forEach(function(p){ phByName[p.name]=p; });
+    var be={}; S.flights.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; if(!be[k]) be[k]={t:0,n:0}; be[k].t+=(f.total||0); be[k].n++; });
+    var emps=Object.keys(be).map(function(k){return {name:k,t:be[k].t,n:be[k].n};}).sort(function(a,b){return b.t-a.t;});
+    var emax=Math.max.apply(null,emps.map(function(m){return m.t;}).concat([1]));
+    if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){ var p=phByName[m.name];
+        var meta=(p&&p.clearDate?('cleared '+esc(p.clearDate)+' \u00b7 '):'')+fmtHM(m.t);
+        var hd='<div class="phasehd">'+esc(m.name)+'<span class="phasecl">'+meta+'</span></div>';
+        if(p && p.clearDate){ var mx=Math.max(p.training,p.line,1);
+          return '<div class="phaseblk">'+hd+bar('Training ('+p.ntr+')',p.training,mx,'amber')+bar('Line ('+p.nln+')',p.line,mx,'green')+'</div>'; }
+        return '<div class="phaseblk">'+hd+bar(m.n+' flights',m.t,emax,'cyan')+'</div>';
+      }).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
 
     // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
     var aL=recentOf(S.flights,90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
