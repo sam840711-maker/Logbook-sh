@@ -383,6 +383,15 @@
         <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
         <div id="acList"></div>
       </div>
+      <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span></div>
+      <div id="actWrap" class="collapse">
+        <div style="display:flex; gap:8px; margin-bottom:10px">
+          <input class="fld mono" id="actNew" placeholder="e.g. B787-9" style="flex:1; margin-bottom:0">
+          <button class="btn ghost sm" id="actAdd">Add</button>
+        </div>
+        <div id="actList"></div>
+        <div class="fhint" style="margin-top:8px">Choices shown when you import a flight with a new registration. Edit when you change fleet or airline.</div>
+      </div>
       <div class="section-head acsec" id="devHead"><h2>SIM devices <span class="cnt" id="devCount">(0)</span></h2><span class="chev" id="devChev">&#9656;</span><button class="add" id="addDev">+ Device</button></div>
       <div id="devWrap" class="collapse">
         <input class="fld" id="devSearch" placeholder="Search type or device name..." style="margin-bottom:10px">
@@ -1020,6 +1029,7 @@
   function renderMore(){
     renderAcList();
     renderDevList();
+    refreshActCount();
     refreshSnapCount();
 
     var cl=$('#credList');
@@ -1169,9 +1179,11 @@
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function mpType(){ var a=acByReg($('#f_reg').value); return a?!!a.multi:false; }
   // One-tap type chooser for a newly seen registration (Sam flies 737 only: B738 or B38M). Robust to fleet transition.
-  // Selectable aircraft types for the new-tail chooser. Edit this one list when changing fleets/employers.
-  // Current: t'way 737 family + Boeing 787 (Etihad) variants.
-  var AC_TYPES=[ {code:'B737-800'}, {code:'B38M-8',note:'MAX 8'}, {code:'B787-8'}, {code:'B787-9'}, {code:'B787-10'} ];
+  // Selectable aircraft types for the new-tail chooser — user-editable from More ▸ Aircraft types (persisted in localStorage).
+  var ACTYPES_K='logbook_actypes';
+  var AC_TYPES_DEFAULT=['B737-800','B38M-8','B787-8','B787-9','B787-10'];
+  function loadAcTypes(){ try{ var a=JSON.parse(localStorage.getItem(ACTYPES_K)); return (Array.isArray(a)&&a.length)?a:AC_TYPES_DEFAULT.slice(); }catch(e){ return AC_TYPES_DEFAULT.slice(); } }
+  function saveAcTypes(a){ try{ localStorage.setItem(ACTYPES_K, JSON.stringify(a)); }catch(e){} }
   var pendingAc=null;
   function askAcType(reg,onPick){ pendingAc={reg:reg,onPick:onPick};
     var r=$('#actypeReg'); if(r) r.textContent=reg;
@@ -1179,11 +1191,27 @@
     var rec=isMax?'B38M-8':'B737-800';
     var box=$('#actypeBtns');
     if(box){ box.innerHTML='';
-      AC_TYPES.forEach(function(o){ var b=document.createElement('button');
-        b.className='btn '+(o.code===rec?'primary':'ghost'); b.textContent=o.code+(o.note?(' ('+o.note+')'):'');
-        b.addEventListener('click',function(){ pickAc(o.code); }); box.appendChild(b); }); }
+      loadAcTypes().forEach(function(code){ var b=document.createElement('button');
+        b.className='btn '+(code===rec?'primary':'ghost'); b.textContent=code;
+        b.addEventListener('click',function(){ pickAc(code); }); box.appendChild(b); }); }
     closeM(); openM('m-actype'); }
   function pickAc(t){ var p=pendingAc; pendingAc=null; closeM(); if(p&&p.onPick) p.onPick(t); }
+  // Aircraft types editor (More ▸ Aircraft types)
+  function renderActList(){ var list=loadAcTypes(); var c=$('#actCount'); if(c) c.textContent='('+list.length+')';
+    var el=$('#actList'); if(!el) return;
+    el.innerHTML = list.length ? list.map(function(code){
+      return '<div class="row" data-acttype="'+esc(code)+'"><div class="main"><div class="t mono">'+esc(code)+'</div></div>'+
+        '<div class="r"><button type="button" class="chip danger" data-actdel="'+esc(code)+'">\u2715</button></div></div>';
+    }).join('') : '<div class="empty"><b>No types</b>Add the aircraft types you fly.</div>';
+  }
+  function refreshActCount(){ var c=$('#actCount'); if(c) c.textContent='('+loadAcTypes().length+')'; }
+  function addAcType(){ var inp=$('#actNew'); if(!inp) return; var v=(inp.value||'').trim().toUpperCase(); if(!v) return;
+    var list=loadAcTypes(); if(list.indexOf(v)>=0){ toast('Already in list'); inp.value=''; return; }
+    list.push(v); saveAcTypes(list); inp.value=''; renderActList(); toast('Added '+v); }
+  function toggleAct(open){ var w=$('#actWrap'); if(!w) return; var willOpen=open!=null?open:!w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#actChev').classList.toggle('down',willOpen); if(willOpen) renderActList(); }
+  if($('#actHead')) $('#actHead').addEventListener('click',function(){ toggleAct(); });
+  if($('#actAdd')) $('#actAdd').addEventListener('click',function(e){ e.stopPropagation(); addAcType(); });
+  if($('#actNew')) $('#actNew').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addAcType(); } });
   function refreshMP(){ var el=$('#f_mp'); if(!el) return; var b=parseDur($('#f_total').value);
     if(mpType()){ if(el._auto || !el.value){ el.value=b?fmtHM(b):''; el._auto=true; } }
     else { if(el._auto){ el.value=''; el._auto=true; } } }
@@ -1356,6 +1384,7 @@
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
+    var adl=e.target.closest('[data-actdel]'); if(adl){ var code=adl.getAttribute('data-actdel'); var lst=loadAcTypes().filter(function(x){return x!==code;}); saveAcTypes(lst); renderActList(); toast('Removed '+code); return; }
     var srr=e.target.closest('[data-snaprestore]'); if(srr){ restoreSnapshot(srr.getAttribute('data-snaprestore')); return; }
     var sdd=e.target.closest('[data-snapdel]'); if(sdd){ var sid=sdd.getAttribute('data-snapdel'); if(confirm('Delete this restore point?')) del('snapshots',sid).then(function(){ refreshSnapCount(); if(snapSectionOpen) renderSnapList(); }); return; }
     var cr=e.target.closest('[data-cid]'); if(cr){ var c=S.credentials.filter(function(x){return x.id===cr.getAttribute('data-cid');})[0]; if(c) openCred(c); return; }
