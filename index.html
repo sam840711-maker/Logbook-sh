@@ -1116,9 +1116,13 @@
       iTookOff = (toC!=null? toC===my : (pf!=null? pf===my : null));
       iLanded  = (ldC!=null? ldC===my : (pf!=null? pf===my : null));
     }
-    // night classification for the landing/takeoff (default day; explicit flags or whole-night leg)
-    var nightLdg = pick(leg,['ldgNight','nightLdg']); if(nightLdg==null) nightLdg=(f.night>0 && f.night>=f.total);
-    var nightTo  = pick(leg,['toNight','nightTo']);  if(nightTo==null)  nightTo=false;
+    // night classification: explicit flags > auto (timezone + logged NIGHT duration) > legacy whole-leg heuristic.
+    // takeoff uses airborne T/O time (to/toTime/airborneOff) if given else block-off; landing uses L/D (ld/ldgTime/airborneOn) else block-on.
+    var toRaw=pick(leg,['to','toTime','airborneOff']); var toUtc=(toRaw!=null)?parseClock(toRaw):f.off;
+    var ldRaw=pick(leg,['ld','ldgTime','airborneOn']); var ldUtc=(ldRaw!=null)?parseClock(ldRaw):f.on;
+    var auto=classifyNight(f,toUtc,ldUtc);
+    var nightLdg = pick(leg,['ldgNight','nightLdg']); if(nightLdg==null) nightLdg= auto? auto.nLdg : (f.night>0 && f.night>=f.total);
+    var nightTo  = pick(leg,['toNight','nightTo']);  if(nightTo==null)  nightTo = auto? auto.nTo  : false;
     var flew = (iTookOff===true)&&(iLanded===true);  // PICUS only when I did BOTH takeoff and landing
     if(iTookOff===true){ if(nightTo) f.nTo=1; else f.dTo=1; }
     if(iLanded===true){ if(nightLdg) f.nLdg=1; else f.dLdg=1; }
@@ -1158,6 +1162,30 @@
   function syncLinks(){ var b=parseDur($('#f_total').value);
     $$('.lnk').forEach(function(cb){ if(cb.checked){ var el=$('#'+cb.getAttribute('data-for')); if(el) el.value=b?fmtHM(b):''; } }); }
   function resolveApt(code){ code=String(code||'').trim().toUpperCase(); if(code.length===3 && window.AIRPORTS_IATA && window.AIRPORTS_IATA[code]) return window.AIRPORTS_IATA[code]; return code; }
+  // Local decimal hour at an airport for a given UTC minute (via timezone in airports.js). null if tz unknown.
+  function locHour(icao,dateStr,utcMin){ if(utcMin==null) return null; var lc=localClock(resolveApt(icao),dateStr,utcMin); if(!lc) return null; var p=lc.split(':'); return (+p[0])+(+p[1])/60; }
+  // Coordinate-free night takeoff/landing classification using the logged NIGHT duration + airport timezones.
+  // Short legs carry night contiguously at one end (or whole-leg). Returns {nTo,nLdg} or null when undeterminable.
+  function classifyNight(f,toUtc,ldUtc){
+    var N=f.night||0, T=f.total||0;
+    if(N<=0) return {nTo:false,nLdg:false};
+    if(T>0 && N>=T) return {nTo:true,nLdg:true};        // whole leg night
+    var hTo=locHour(f.dep,f.date,toUtc), hLd=locHour(f.arr,f.date,ldUtc);
+    if(hTo==null && hLd==null) return null;             // no tz -> caller falls back
+    var nh=N/60, wrap=function(x){ return ((x%24)+24)%24; };
+    var sunset =(hLd!=null)? wrap(hLd-nh) : null;        // local time night began, just before landing
+    var sunrise=(hTo!=null)? wrap(hTo+nh) : null;        // local time night ended, just after takeoff
+    var inEve =function(x){ return x>=15.5 && x<=21.5; };
+    var inMorn=function(x){ return x>=3.0  && x<=8.5;  };
+    var eveOK = sunset!=null  && inEve(sunset);
+    var mornOK= sunrise!=null && inMorn(sunrise);
+    if(eveOK && !mornOK) return {nTo:false,nLdg:true};   // dusk crossing -> night landing
+    if(mornOK && !eveOK) return {nTo:true,nLdg:false};   // dawn crossing -> night takeoff
+    var dark=function(h){ h=wrap(h); return Math.min(Math.abs(h-2),Math.abs(h-26)); }; // distance from ~02:00 local
+    if(hLd!=null && hTo!=null) return (dark(hLd)<=dark(hTo))?{nTo:false,nLdg:true}:{nTo:true,nLdg:false};
+    if(hLd!=null) return {nTo:false,nLdg:true};
+    return {nTo:true,nLdg:false};
+  }
   function localClock(icao,dateStr,utcMin){ var A=window.AIRPORTS; if(!A) return null; var info=A[(icao||'').toUpperCase()]; if(!info||!info[1]) return null;
     var d=new Date((dateStr||today())+'T00:00:00Z'); d.setUTCMinutes(d.getUTCMinutes()+utcMin);
     try{ return new Intl.DateTimeFormat('en-GB',{timeZone:info[1],hour:'2-digit',minute:'2-digit',hour12:false}).format(d); }catch(e){ return null; } }
