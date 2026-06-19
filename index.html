@@ -119,6 +119,15 @@
   .cnt{color:var(--ink-faint); font-weight:400; font-size:12px}
   .chev{margin-left:8px; color:var(--ink-faint); font-size:11px; transition:transform .15s; display:inline-block}
   .chev.down{transform:rotate(90deg)}
+  .navrow{display:flex; align-items:center; gap:10px; padding:13px 14px; margin:10px 0 4px; background:var(--panel); border:1px solid var(--line-soft); border-radius:12px; cursor:pointer; -webkit-user-select:none; user-select:none}
+  .navrow:active{background:var(--panel-2)}
+  .navrow .nr-main{flex:1; min-width:0}
+  .navrow .nr-t{font-size:14px; font-weight:600; color:var(--ink)}
+  .navrow .nr-s{font-size:12px; color:var(--ink-faint); margin-top:2px}
+  .navrow .nr-chev{color:var(--ink-faint); font-size:13px}
+  .backbar{display:inline-flex; align-items:center; gap:7px; margin:2px 2px 10px; padding:7px 12px 7px 9px; background:var(--panel); border:1px solid var(--line-soft); border-radius:10px; cursor:pointer; color:var(--ink); font-size:13px; font-weight:500; -webkit-user-select:none; user-select:none}
+  .backbar:active{background:var(--panel-2)}
+  .backbar .bb-arrow{font-size:16px; line-height:1; color:var(--cyan)}
   .collapse{display:none}
   .collapse.open{display:block}
   .acgrp{font-size:11px; letter-spacing:.06em; color:var(--ink-faint); text-transform:uppercase; margin:12px 2px 6px; display:flex; align-items:center; gap:6px}
@@ -245,6 +254,7 @@
   .bar .bt{height:8px; background:var(--line-soft); border-radius:99px; overflow:hidden}
   .bar .bf{height:100%; background:var(--cyan); border-radius:99px; transition:width .3s}
   .bar .bf.amber{background:var(--amber)} .bar .bf.violet{background:#b48ee8} .bar .bf.green{background:var(--green)}
+.bf.cyan{background:var(--cyan)}
   .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); white-space:nowrap}
   #dashCurr .bar{grid-template-columns:92px 1fr auto}
   #dashCurr .bar .bv{padding-left:8px}
@@ -318,6 +328,8 @@
       <div class="bars" id="dashCurr"></div>
       <div class="section-head"><h2>Aircraft model</h2></div>
       <div class="bars" id="dashModel"></div>
+      <div class="section-head"><h2>By employer</h2></div>
+      <div class="bars" id="dashEmp"></div>
       <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
       <div class="appfoot" id="appfoot"></div>
@@ -380,27 +392,11 @@
     <!-- MORE -->
     <section class="view" id="view-more">
       <p class="eyebrow">Manage</p>
-      <div class="section-head acsec" id="acHead"><h2>Aircraft <span class="cnt" id="acCount">(0)</span></h2><span class="chev" id="acChev">&#9656;</span><button class="add" id="addAc">+ Aircraft</button></div>
-      <div id="acWrap" class="collapse">
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px">
-          <button type="button" class="chip" id="acSelBtn">Select</button>
-          <button type="button" class="chip" id="acSelAll" style="display:none">All</button>
-          <button type="button" class="chip" id="acBulkEdit" style="display:none">Edit</button>
-          <button type="button" class="chip danger" id="acBulkDel" style="display:none">Delete</button>
-          <button type="button" class="chip" id="acSelCancel" style="display:none">Cancel</button>
-        </div>
-        <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
-        <div id="acList"></div>
-      </div>
-      <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span><button class="add" id="addType">+ Type</button></div>
-      <div id="actWrap" class="collapse">
-        <div id="actList"></div>
-        <div class="fhint" style="margin-top:8px">Choices shown when you import a flight with a new registration. Edit when you change fleet or airline.</div>
-      </div>
-      <div class="section-head acsec" id="devHead"><h2>SIM devices <span class="cnt" id="devCount">(0)</span></h2><span class="chev" id="devChev">&#9656;</span><button class="add" id="addDev">+ Device</button></div>
-      <div id="devWrap" class="collapse">
-        <input class="fld" id="devSearch" placeholder="Search type or device name..." style="margin-bottom:10px">
-        <div id="devList"></div>
+      <div class="navrow" id="goFleet"><div class="nr-main"><div class="nr-t">Fleet &amp; devices</div><div class="nr-s">Aircraft, aircraft types &amp; SIM devices</div></div><span class="nr-chev">&#9656;</span></div>
+      <div class="section-head acsec" id="empHead"><h2>Employers <span class="cnt" id="empCount">(0)</span></h2><span class="chev" id="empChev">&#9656;</span><button class="add" id="addEmp">+ Employer</button></div>
+      <div id="empWrap" class="collapse">
+        <div id="empList"></div>
+        <div class="fhint" style="margin-top:8px">Flights are grouped by employer using their flight-number prefix (e.g. TW, TWB &rarr; t'way). Edit prefixes to match each airline.</div>
       </div>
       <div class="section-head"><h2>Licences · Medical · Recency</h2><button class="add" id="addCred">+ Item</button></div>
       <div id="credList"></div>
@@ -440,6 +436,32 @@
       <div id="snapWrap" class="collapse">
         <div id="snapList"></div>
         <div class="fhint" style="margin-top:8px">Saved automatically on app open when data changes, and just before restore / import / delete-all. Keeps the latest 10 on this device. Restoring replaces all current data (a point for the current state is saved first).</div>
+      </div>
+    </section>
+    <section class="view" id="view-fleet">
+      <div class="backbar" id="fleetBack"><span class="bb-arrow">&#8592;</span><span>Manage</span></div>
+      <p class="eyebrow">Fleet &amp; devices</p>
+      <div class="section-head acsec" id="acHead"><h2>Aircraft <span class="cnt" id="acCount">(0)</span></h2><span class="chev" id="acChev">&#9656;</span><button class="add" id="addAc">+ Aircraft</button></div>
+      <div id="acWrap" class="collapse">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px">
+          <button type="button" class="chip" id="acSelBtn">Select</button>
+          <button type="button" class="chip" id="acSelAll" style="display:none">All</button>
+          <button type="button" class="chip" id="acBulkEdit" style="display:none">Edit</button>
+          <button type="button" class="chip danger" id="acBulkDel" style="display:none">Delete</button>
+          <button type="button" class="chip" id="acSelCancel" style="display:none">Cancel</button>
+        </div>
+        <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
+        <div id="acList"></div>
+      </div>
+      <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span><button class="add" id="addType">+ Type</button></div>
+      <div id="actWrap" class="collapse">
+        <div id="actList"></div>
+        <div class="fhint" style="margin-top:8px">Choices shown when you import a flight with a new registration. Edit when you change fleet or airline.</div>
+      </div>
+      <div class="section-head acsec" id="devHead"><h2>SIM devices <span class="cnt" id="devCount">(0)</span></h2><span class="chev" id="devChev">&#9656;</span><button class="add" id="addDev">+ Device</button></div>
+      <div id="devWrap" class="collapse">
+        <input class="fld" id="devSearch" placeholder="Search type or device name..." style="margin-bottom:10px">
+        <div id="devList"></div>
       </div>
     </section>
   </main>
@@ -645,6 +667,16 @@
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="acbulkApply">Apply</button></div>
 </div></div>
 
+<div class="modal" id="m-emp"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3 id="empTitle">Add employer</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <div class="fgroup"><label>Company</label><input class="fld" id="e_name" placeholder="e.g. t'way"></div>
+    <div class="fgroup"><label>Flight-number prefixes</label><input class="fld mono" id="e_pfx" placeholder="TW, TWB" autocapitalize="characters"></div>
+    <div class="fhint">Comma-separated. A flight belongs here if its flight number starts with any prefix.</div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" id="empDel" style="display:none">Delete</button><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="empSave">Save</button></div>
+</div></div>
+
 <div class="modal" id="m-bulk"><div class="scrim" data-close></div><div class="sheet">
   <div class="sheet-head"><h3 id="bulkTitle">Edit selected</h3><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
@@ -700,7 +732,7 @@
   function daysBetween(a,b){ return Math.round((a-b)/86400000); }
 
   /* ---------- DB ---------- */
-  var DB=null, DBNAME='pilot_logbook', VER=3, DATA_STORES=['flights','aircraft','sim','credentials','simdevices'], STORES=DATA_STORES.concat(['snapshots']);
+  var DB=null, DBNAME='pilot_logbook', VER=4, DATA_STORES=['flights','aircraft','sim','credentials','simdevices','employers'], STORES=DATA_STORES.concat(['snapshots']);
   function openDB(){ return new Promise(function(res,rej){
     var rq=indexedDB.open(DBNAME,VER);
     rq.onupgradeneeded=function(e){ var db=e.target.result;
@@ -716,22 +748,35 @@
   function clearStore(store){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').clear(); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);}; }); }
 
   /* ---------- state ---------- */
-  var S={flights:[],aircraft:[],sim:[],credentials:[],simdevices:[]};
-  function reload(){ return Promise.all(DATA_STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[];
+  var S={flights:[],aircraft:[],sim:[],credentials:[],simdevices:[],employers:[]};
+  function reload(){ return Promise.all(DATA_STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[]; S.employers=r[5]||[];
     S.flights.sort(byDateDesc); S.sim.sort(byDateDesc); }); }
   function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||'') || (b._c||0)-(a._c||0); }
+  // Classify a flight to an employer by flight-number prefix (longest match wins). null = unassigned.
+  function employerOf(fno){ fno=(fno||'').trim().toUpperCase(); if(!fno) return null; var best=null, bl=-1;
+    (S.employers||[]).forEach(function(e){ (e.prefixes||[]).forEach(function(p){ p=(p||'').trim().toUpperCase(); if(p && fno.indexOf(p)===0 && p.length>bl){ best=e.name; bl=p.length; } }); });
+    return best; }
+  // Seed default employers once (t'way, Jeju Air) so existing flights classify by prefix immediately.
+  function seedEmployers(){
+    try{ if(localStorage.getItem('logbook_emp_seeded')) return Promise.resolve(); }catch(e){}
+    if(S.employers && S.employers.length){ try{ localStorage.setItem('logbook_emp_seeded','1'); }catch(e){} return Promise.resolve(); }
+    var t0=Date.now(); var defs=[{id:uid(),_c:t0,name:"t'way",prefixes:["TW","TWB"]},{id:uid(),_c:t0+1,name:"Jeju Air",prefixes:["7C","JJA"]}];
+    return Promise.all(defs.map(function(d){return put('employers',d);})).then(function(){ try{ localStorage.setItem('logbook_emp_seeded','1'); }catch(e){} }).then(reload);
+  }
 
   function toast(msg){ var t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove('show');},1900); }
 
   /* ---------- routing ---------- */
   var VIEWS=['dash','log','sim','more'];
+  var ALLVIEWS=['dash','log','sim','more','fleet'];
   function go(v){
-    VIEWS.forEach(function(x){ $('#view-'+x).classList.toggle('active', x===v); });
-    $$('nav.tabs button[data-view]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-view')===v); });
+    ALLVIEWS.forEach(function(x){ var el=$('#view-'+x); if(el) el.classList.toggle('active', x===v); });
+    $$('nav.tabs button[data-view]').forEach(function(b){ var d=b.getAttribute('data-view'); b.classList.toggle('on', d===v || (v==='fleet'&&d==='more')); });
     if(v==='dash') renderDash();
     if(v==='log') renderLog();
     if(v==='sim') renderSim();
     if(v==='more') renderMore();
+    if(v==='fleet') renderFleet();
     window.scrollTo(0,0);
   }
 
@@ -820,6 +865,11 @@
     var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
+
+    var be={}; S.flights.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; be[k]=(be[k]||0)+(f.total||0); });
+    var emps=Object.keys(be).map(function(k){return [k,be[k]];}).sort(function(a,b){return b[1]-a[1];});
+    var emax=Math.max.apply(null,emps.map(function(m){return m[1];}).concat([1]));
+    if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){return bar(m[0],m[1],emax,'cyan');}).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
 
     // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
     var aL=recentOf(S.flights,90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
@@ -1062,10 +1112,13 @@
         '<div class="s">'+esc([v.name,v.level].filter(Boolean).join(' \u00b7 ')||'SIM device')+'</div></div></div>';
     }).join('');
   }
-  function renderMore(){
+  function renderFleet(){
     renderAcList();
     renderDevList();
     refreshActCount();
+  }
+  function renderMore(){
+    renderEmpList();
     refreshSnapCount();
 
     var cl=$('#credList');
@@ -1402,11 +1455,11 @@
     var cls=$('#a_class').value;
     var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:cls,engine:engineFromClass(cls),multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
     put('aircraft',obj).then(function(){ return propagateAircraft(obj); }).then(function(n){
-      reload().then(function(){ closeM(); go('more'); toast((editAid?'Updated':'Aircraft saved')+(n?(' \u00b7 '+n+' flights synced'):'')); });
+      reload().then(function(){ closeM(); go('fleet'); toast((editAid?'Updated':'Aircraft saved')+(n?(' \u00b7 '+n+' flights synced'):'')); });
     });
   });
   $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('Delete this aircraft?')) return;
-    del('aircraft',editAid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
+    del('aircraft',editAid).then(reload).then(function(){ closeM(); go('fleet'); toast('Deleted'); }); });
 
   /* ---------- SIM DEVICE form ---------- */
   var editVid=null;
@@ -1423,10 +1476,37 @@
   $('#devSave').addEventListener('click',function(){
     var type=$('#v_type').value.trim().toUpperCase(); if(!type){ toast('Enter an aircraft type'); return; }
     var obj={id:editVid||uid(),type:type,name:$('#v_name').value.trim(),level:$('#v_level').value,rem:$('#v_rem').value.trim()};
-    put('simdevices',obj).then(reload).then(function(){ closeM(); go('more'); toast(editVid?'Updated':'Device saved'); });
+    put('simdevices',obj).then(reload).then(function(){ closeM(); go('fleet'); toast(editVid?'Updated':'Device saved'); });
   });
   $('#devDel').addEventListener('click',function(){ if(!editVid) return; if(!confirm('Delete this SIM device?')) return;
-    del('simdevices',editVid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
+    del('simdevices',editVid).then(reload).then(function(){ closeM(); go('fleet'); toast('Deleted'); }); });
+
+  /* ---------- Employers ---------- */
+  var editEid=null;
+  function refreshEmpCount(){ var c=$('#empCount'); if(c) c.textContent='('+(S.employers?S.employers.length:0)+')'; }
+  function renderEmpList(){
+    refreshEmpCount();
+    var el=$('#empList'); if(!el) return;
+    if(!S.employers.length){ el.innerHTML='<div class="empty"><b>No employers</b>Add an airline and its flight-number prefixes to group your flights.</div>'; return; }
+    el.innerHTML=S.employers.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); }).map(function(e){
+      return '<div class="row" data-eid="'+e.id+'"><div class="main"><div class="t">'+esc(e.name||'')+'</div>'+
+        '<div class="s mono">'+esc((e.prefixes||[]).join(', ')||'no prefix')+'</div></div></div>';
+    }).join('');
+  }
+  function openEmp(e){ editEid=e?e.id:null; $('#empTitle').textContent=e?'Edit employer':'Add employer'; $('#empDel').style.display=e?'block':'none';
+    $('#e_name').value=e?(e.name||''):''; $('#e_pfx').value=e?((e.prefixes||[]).join(', ')):''; openM('m-emp'); }
+  function toggleEmp(open){ var w=$('#empWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#empChev').classList.toggle('down',willOpen); if(willOpen) renderEmpList(); }
+  $('#empHead').addEventListener('click',function(e){ if(e.target.closest('#addEmp')) return; toggleEmp(); });
+  $('#addEmp').addEventListener('click',function(e){ e.stopPropagation(); openEmp(null); });
+  $('#empSave').addEventListener('click',function(){
+    var name=$('#e_name').value.trim(); if(!name){ toast('Enter a company name'); return; }
+    var pfx=$('#e_pfx').value.split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
+    var obj={id:editEid||uid(),name:name,prefixes:pfx,_c:Date.now()};
+    if(editEid){ var old=S.employers.filter(function(x){return x.id===editEid;})[0]; if(old&&old._c) obj._c=old._c; }
+    put('employers',obj).then(reload).then(function(){ closeM(); renderEmpList(); if($('#view-dash').classList.contains('active')) renderDash(); toast(editEid?'Updated':'Employer saved'); });
+  });
+  $('#empDel').addEventListener('click',function(){ if(!editEid) return; if(!confirm('Delete this employer? Flights are not changed, only the grouping.')) return;
+    del('employers',editEid).then(reload).then(function(){ closeM(); renderEmpList(); if($('#view-dash').classList.contains('active')) renderDash(); toast('Deleted'); }); });
 
   /* ---------- SIM form ---------- */
   var editSid=null;
@@ -1468,6 +1548,7 @@
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var aid=ar.getAttribute('data-aid'); if(acSelMode){ toggleAcSel(aid); return; } var a=S.aircraft.filter(function(x){return x.id===aid;})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
+    var emr=e.target.closest('[data-eid]'); if(emr){ var em=S.employers.filter(function(x){return x.id===emr.getAttribute('data-eid');})[0]; if(em) openEmp(em); return; }
     var aup=e.target.closest('[data-actup]'); if(aup){ var cu=aup.getAttribute('data-actup'); var lu=loadAcTypes(); var iu=lu.indexOf(cu); if(iu>0){ var tu=lu[iu-1]; lu[iu-1]=lu[iu]; lu[iu]=tu; saveAcTypes(lu); renderActList(); } return; }
     var adn=e.target.closest('[data-actdown]'); if(adn){ var cd=adn.getAttribute('data-actdown'); var ld=loadAcTypes(); var idn=ld.indexOf(cd); if(idn>=0 && idn<ld.length-1){ var td=ld[idn+1]; ld[idn+1]=ld[idn]; ld[idn]=td; saveAcTypes(ld); renderActList(); } return; }
     var adl=e.target.closest('[data-actdel]'); if(adl){ var code=adl.getAttribute('data-actdel'); var lst=loadAcTypes().filter(function(x){return x!==code;}); saveAcTypes(lst); renderActList(); toast('Removed '+code); return; }
@@ -1477,6 +1558,8 @@
     var gb=e.target.closest('[data-go]'); if(gb){ go(gb.getAttribute('data-go')); }
   });
   $$('nav.tabs button[data-view]').forEach(function(b){ b.addEventListener('click',function(){ go(b.getAttribute('data-view')); }); });
+  $('#goFleet').addEventListener('click',function(){ go('fleet'); });
+  $('#fleetBack').addEventListener('click',function(){ go('more'); });
   $('#dashPeriod').addEventListener('change',function(){ dashPeriod=this.value; $('#dashRangeRow').style.display=(dashPeriod==='range')?'':'none'; renderDash(); });
   $('#dashFrom').addEventListener('change',function(){ dashFrom=this.value; renderDash(); });
   $('#dashTo').addEventListener('change',function(){ dashTo=this.value; renderDash(); });
@@ -1708,7 +1791,7 @@
   });
 
   /* ---------- boot ---------- */
-  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(function(){ go('dash'); maybeAutoSnapshot().then(refreshSnapCount); }); }
+  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(seedEmployers).then(function(){ go('dash'); maybeAutoSnapshot().then(refreshSnapCount); }); }
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
