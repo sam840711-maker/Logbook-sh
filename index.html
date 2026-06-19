@@ -383,10 +383,8 @@
         <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
         <div id="acList"></div>
       </div>
-      <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span></div>
+      <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span><button class="add" id="addType">+ Type</button></div>
       <div id="actWrap" class="collapse">
-        <input class="fld mono" id="actNew" placeholder="e.g. B787-9" style="margin-bottom:8px">
-        <button class="btn ghost sm" id="actAdd" style="width:100%; margin-bottom:10px">Add type</button>
         <div id="actList"></div>
         <div class="fhint" style="margin-top:8px">Choices shown when you import a flight with a new registration. Edit when you change fleet or airline.</div>
       </div>
@@ -618,6 +616,15 @@
     <div id="actypeBtns" style="display:flex; flex-direction:column; gap:8px; margin-top:6px"></div>
     <p class="fhint" style="margin-top:10px">Saved to your aircraft registry — you'll only pick this once per tail.</p>
   </div>
+</div></div>
+
+<div class="modal" id="m-typeadd"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3>Add aircraft type</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <div class="fgroup"><label>Type</label><input class="fld mono" id="typeNew" placeholder="e.g. B787-9" autocapitalize="characters"></div>
+    <div class="fhint">Shown as a choice when you import a flight with a new registration.</div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="typeSave">Save</button></div>
 </div></div>
 
 <div class="modal" id="m-bulk"><div class="scrim" data-close></div><div class="sheet">
@@ -1195,19 +1202,24 @@
   // Aircraft types editor (More ▸ Aircraft types)
   function renderActList(){ var list=loadAcTypes(); var c=$('#actCount'); if(c) c.textContent='('+list.length+')';
     var el=$('#actList'); if(!el) return;
-    el.innerHTML = list.length ? list.map(function(code){
+    var last=list.length-1;
+    el.innerHTML = list.length ? list.map(function(code,i){
       return '<div class="row" data-acttype="'+esc(code)+'"><div class="main"><div class="t mono">'+esc(code)+'</div></div>'+
-        '<div class="r"><button type="button" class="chip danger" data-actdel="'+esc(code)+'">\u2715</button></div></div>';
+        '<div class="r" style="display:flex; gap:6px; align-items:center">'+
+        (i>0?'<button type="button" class="chip" data-actup="'+esc(code)+'">\u2191</button>':'')+
+        (i<last?'<button type="button" class="chip" data-actdown="'+esc(code)+'">\u2193</button>':'')+
+        '<button type="button" class="chip danger" data-actdel="'+esc(code)+'">\u2715</button></div></div>';
     }).join('') : '<div class="empty"><b>No types</b>Add the aircraft types you fly.</div>';
   }
   function refreshActCount(){ var c=$('#actCount'); if(c) c.textContent='('+loadAcTypes().length+')'; }
-  function addAcType(){ var inp=$('#actNew'); if(!inp) return; var v=(inp.value||'').trim().toUpperCase(); if(!v) return;
-    var list=loadAcTypes(); if(list.indexOf(v)>=0){ toast('Already in list'); inp.value=''; return; }
-    list.push(v); saveAcTypes(list); inp.value=''; renderActList(); toast('Added '+v); }
+  function addAcType(){ var inp=$('#typeNew'); if(!inp) return; var v=(inp.value||'').trim().toUpperCase(); if(!v) return;
+    var list=loadAcTypes(); if(list.indexOf(v)>=0){ toast('Already in list'); return; }
+    list.push(v); saveAcTypes(list); inp.value=''; closeM(); toggleAct(true); renderActList(); toast('Added '+v); }
   function toggleAct(open){ var w=$('#actWrap'); if(!w) return; var willOpen=open!=null?open:!w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#actChev').classList.toggle('down',willOpen); if(willOpen) renderActList(); }
-  if($('#actHead')) $('#actHead').addEventListener('click',function(){ toggleAct(); });
-  if($('#actAdd')) $('#actAdd').addEventListener('click',function(e){ e.stopPropagation(); addAcType(); });
-  if($('#actNew')) $('#actNew').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addAcType(); } });
+  if($('#actHead')) $('#actHead').addEventListener('click',function(e){ if(e.target.closest('#addType')) return; toggleAct(); });
+  if($('#addType')) $('#addType').addEventListener('click',function(e){ e.stopPropagation(); var i=$('#typeNew'); if(i) i.value=''; openM('m-typeadd'); setTimeout(function(){ if(i) i.focus(); },60); });
+  if($('#typeSave')) $('#typeSave').addEventListener('click',addAcType);
+  if($('#typeNew')) $('#typeNew').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addAcType(); } });
   function refreshMP(){ var el=$('#f_mp'); if(!el) return; var b=parseDur($('#f_total').value);
     if(mpType()){ if(el._auto || !el.value){ el.value=b?fmtHM(b):''; el._auto=true; } }
     else { if(el._auto){ el.value=''; el._auto=true; } } }
@@ -1382,6 +1394,8 @@
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
+    var aup=e.target.closest('[data-actup]'); if(aup){ var cu=aup.getAttribute('data-actup'); var lu=loadAcTypes(); var iu=lu.indexOf(cu); if(iu>0){ var tu=lu[iu-1]; lu[iu-1]=lu[iu]; lu[iu]=tu; saveAcTypes(lu); renderActList(); } return; }
+    var adn=e.target.closest('[data-actdown]'); if(adn){ var cd=adn.getAttribute('data-actdown'); var ld=loadAcTypes(); var idn=ld.indexOf(cd); if(idn>=0 && idn<ld.length-1){ var td=ld[idn+1]; ld[idn+1]=ld[idn]; ld[idn]=td; saveAcTypes(ld); renderActList(); } return; }
     var adl=e.target.closest('[data-actdel]'); if(adl){ var code=adl.getAttribute('data-actdel'); var lst=loadAcTypes().filter(function(x){return x!==code;}); saveAcTypes(lst); renderActList(); toast('Removed '+code); return; }
     var srr=e.target.closest('[data-snaprestore]'); if(srr){ restoreSnapshot(srr.getAttribute('data-snaprestore')); return; }
     var sdd=e.target.closest('[data-snapdel]'); if(sdd){ var sid=sdd.getAttribute('data-snapdel'); if(confirm('Delete this restore point?')) del('snapshots',sid).then(function(){ refreshSnapCount(); if(snapSectionOpen) renderSnapList(); }); return; }
