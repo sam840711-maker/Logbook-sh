@@ -262,6 +262,9 @@
   .fcard .rt .rr{font-size:12.5px; color:var(--ink)}
   .fcard .rt .du{font-size:12.5px; color:var(--cyan); margin-top:1px}
   .fcard.sim .rt .du{color:#b48ee8}
+  .fcard .fsum{grid-column:1 / -1; margin-top:9px; padding-top:8px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:5px 12px; font-family:var(--mono); font-size:10.5px; line-height:1.1}
+  .fcard .fsum .ch{color:var(--ink)}
+  .fcard .fsum .ch i{color:var(--ink-faint); font-style:normal; margin-right:3px; font-size:9px; letter-spacing:.02em; text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -808,12 +811,21 @@
   }
   function monName(mm){return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mm,10)||0]||'';}
   function clk2(min){var h=Math.floor(min/60),m=min%60;return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
+  function flightSummary(f){
+    var ch=[];
+    function tm(lab,min){ if(min>0) ch.push('<span class="ch"><i>'+lab+'</i>'+fmtHM(min)+'</span>'); }
+    tm('BLK', f.total); tm('Inst', f.actual); tm('PIC', f.pic); tm('PICUS', f.picus); tm('SIC', f.sic); tm('Night', f.night);
+    function dn(d,n){ var a=[]; if(d>0)a.push(d+'D'); if(n>0)a.push(n+'N'); return a.join(' '); }
+    var to=dn(f.dTo||0,f.nTo||0); if(to) ch.push('<span class="ch"><i>T/O</i>'+to+'</span>');
+    var ld=dn(f.dLdg||0,f.nLdg||0); if(ld) ch.push('<span class="ch"><i>Ldg</i>'+ld+'</span>');
+    return ch.length ? '<div class="fsum">'+ch.join('')+'</div>' : '';
+  }
   function cardFlight(f){ var d=(f.date||'').split('-');
     var out=f.off!=null?clk2(f.off):'--:--', inn=f.on!=null?clk2(f.on):'--:--';
     var cls='fcard'+(selMode?' picking':'')+(logSel[f.id]?' selon':'');
     return '<div class="'+cls+'" data-fid="'+f.id+'"><div class="seldot">\u2713</div><div class="d"><div class="dd">'+esc(d[2]||'--')+'</div><div class="dm">'+esc(monName(d[1]))+" '"+esc((d[0]||'').slice(2))+'</div></div>'+
       '<div class="mid"><div class="fn">'+esc(f.fno||'—')+'  '+esc(f.dep||'????')+' \u2192 '+esc(f.arr||'????')+'</div><div class="ac">'+esc(f.acType||'')+(f.reg?' \u00b7 '+esc(f.reg):'')+'</div></div>'+
-      '<div class="rt"><div class="rr">'+out+' \u2013 '+inn+'</div><div class="du">'+fmtHM(f.total)+'</div></div></div>';
+      '<div class="rt"><div class="rr">'+out+' \u2013 '+inn+'</div><div class="du">'+fmtHM(f.total)+'</div></div>'+flightSummary(f)+'</div>';
   }
 
   /* ---------- LOGBOOK ---------- */
