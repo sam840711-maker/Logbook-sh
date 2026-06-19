@@ -128,6 +128,9 @@
   .backbar{display:inline-flex; align-items:center; gap:7px; margin:2px 2px 10px; padding:7px 12px 7px 9px; background:var(--panel); border:1px solid var(--line-soft); border-radius:10px; cursor:pointer; color:var(--ink); font-size:13px; font-weight:500; -webkit-user-select:none; user-select:none}
   .backbar:active{background:var(--panel-2)}
   .backbar .bb-arrow{font-size:16px; line-height:1; color:var(--cyan)}
+  .phaseblk{margin:0 0 14px}
+  .phasehd{display:flex; align-items:baseline; gap:8px; font-size:13px; font-weight:600; color:var(--ink); margin:0 2px 7px}
+  .phasehd .phasecl{margin-left:auto; font-size:11px; font-weight:400; color:var(--ink-faint); font-family:var(--mono)}
   .collapse{display:none}
   .collapse.open{display:block}
   .acgrp{font-size:11px; letter-spacing:.06em; color:var(--ink-faint); text-transform:uppercase; margin:12px 2px 6px; display:flex; align-items:center; gap:6px}
@@ -330,6 +333,8 @@
       <div class="bars" id="dashModel"></div>
       <div class="section-head"><h2>By employer</h2></div>
       <div class="bars" id="dashEmp"></div>
+      <div class="section-head"><h2>Training vs line</h2></div>
+      <div id="dashEmpPhase"></div>
       <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
       <div class="appfoot" id="appfoot"></div>
@@ -674,6 +679,8 @@
     <div class="fgroup"><label>Company</label><input class="fld" id="e_name" placeholder="e.g. t'way"></div>
     <div class="fgroup"><label>Flight-number prefixes</label><input class="fld mono" id="e_pfx" placeholder="TW, TWB" autocapitalize="characters"></div>
     <div class="fhint">Comma-separated. A flight belongs here if its flight number starts with any prefix.</div>
+    <div class="fgroup" style="margin-top:10px"><label>Training clear date (optional)</label><input class="fld" id="e_clear" type="date"></div>
+    <div class="fhint">Flights before this date count as training; flights on/after it count as line time.</div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" id="empDel" style="display:none">Delete</button><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="empSave">Save</button></div>
 </div></div>
@@ -763,6 +770,17 @@
     if(S.employers && S.employers.length){ try{ localStorage.setItem('logbook_emp_seeded','1'); }catch(e){} return Promise.resolve(); }
     var t0=Date.now(); var defs=[{id:uid(),_c:t0,name:"t'way",prefixes:["TW","TWB"]},{id:uid(),_c:t0+1,name:"Jeju Air",prefixes:["7C","JJA"]}];
     return Promise.all(defs.map(function(d){return put('employers',d);})).then(function(){ try{ localStorage.setItem('logbook_emp_seeded','1'); }catch(e){} }).then(reload);
+  }
+  // Per-employer training/line split. clearDate splits: date < clearDate = training, date >= clearDate = line.
+  function empPhaseStats(){
+    var by={};
+    (S.employers||[]).forEach(function(e){ by[e.name]={name:e.name, clearDate:e.clearDate||'', training:0, line:0, total:0, ntr:0, nln:0, n:0}; });
+    S.flights.forEach(function(f){
+      var nm=employerOf(f.fno); if(!nm) return; var rec=by[nm]; if(!rec) return;
+      var mins=f.total||0; rec.total+=mins; rec.n++;
+      if(rec.clearDate){ if((f.date||'')<rec.clearDate){ rec.training+=mins; rec.ntr++; } else { rec.line+=mins; rec.nln++; } }
+    });
+    return Object.keys(by).map(function(k){return by[k];});
   }
 
   function toast(msg){ var t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove('show');},1900); }
@@ -872,6 +890,14 @@
     var emax=Math.max.apply(null,emps.map(function(m){return m[1];}).concat([1]));
     if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){return bar(m[0],m[1],emax,'cyan');}).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
 
+    var phases=empPhaseStats().filter(function(p){return p.clearDate && p.total>0;}).sort(function(a,b){return b.total-a.total;});
+    if($('#dashEmpPhase')) $('#dashEmpPhase').innerHTML = phases.length
+      ? phases.map(function(p){ var mx=Math.max(p.training,p.line,1);
+          return '<div class="phaseblk"><div class="phasehd">'+esc(p.name)+'<span class="phasecl">cleared '+esc(p.clearDate)+'</span></div>'
+            + bar('Training ('+p.ntr+')',p.training,mx,'amber') + bar('Line ('+p.nln+')',p.line,mx,'green') + '</div>';
+        }).join('')
+      : '<div class="fhint" style="padding:4px 2px">Set a training clear date on an employer (More &#9656; Employers) to split training vs line time.</div>';
+
     // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
     var aL=recentOf(S.flights,90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
     var aN=recentOf(S.flights,90,function(f){return f.nLdg||0;}), sN=recentOf(S.sim,90,function(s){return s.nLdg||0;}); var tN=aN.count+sN.count;
@@ -904,7 +930,7 @@
   function flightSummary(f){
     var ch=[];
     function tm(lab,min){ if(min>0) ch.push('<span class="ch"><i>'+lab+'</i>'+fmtHM(min)+'</span>'); }
-    tm('BLK', f.total); tm('Inst', f.actual); tm('PIC', f.pic); tm('PICUS', f.picus); tm('SIC', f.sic); tm('Night', f.night);
+    tm('BLK', f.total); tm('Inst', f.actual); tm('PIC', f.pic); tm('PICUS', f.picus); tm('SIC', f.sic); tm('Dual', f.dual); tm('Relief', f.relief); tm('Instr', f.instr); tm('Night', f.night);
     function dn(d,n){ var a=[]; if(d>0)a.push(d+'D'); if(n>0)a.push(n+'N'); return a.join(' '); }
     var to=dn(f.dTo||0,f.nTo||0); if(to) ch.push('<span class="ch"><i>T/O</i>'+to+'</span>');
     var ld=dn(f.dLdg||0,f.nLdg||0); if(ld) ch.push('<span class="ch"><i>Ldg</i>'+ld+'</span>');
@@ -1503,20 +1529,25 @@
     refreshEmpCount();
     var el=$('#empList'); if(!el) return;
     if(!S.employers.length){ el.innerHTML='<div class="empty"><b>No employers</b>Add an airline and its flight-number prefixes to group your flights.</div>'; return; }
+    var ph={}; empPhaseStats().forEach(function(p){ ph[p.name]=p; });
     el.innerHTML=S.employers.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); }).map(function(e){
+      var p=ph[e.name]; var extra='';
+      if(e.clearDate && p){ extra='<div class="s">cleared '+esc(e.clearDate)+' &middot; trn '+fmtHM(p.training)+' / line '+fmtHM(p.line)+'</div>'; }
+      else if(p){ extra='<div class="s">'+p.n+' flights &middot; '+fmtHM(p.total)+' &middot; no clear date</div>'; }
       return '<div class="row" data-eid="'+e.id+'"><div class="main"><div class="t">'+esc(e.name||'')+'</div>'+
-        '<div class="s mono">'+esc((e.prefixes||[]).join(', ')||'no prefix')+'</div></div></div>';
+        '<div class="s mono">'+esc((e.prefixes||[]).join(', ')||'no prefix')+'</div>'+extra+'</div></div>';
     }).join('');
   }
   function openEmp(e){ editEid=e?e.id:null; $('#empTitle').textContent=e?'Edit employer':'Add employer'; $('#empDel').style.display=e?'block':'none';
-    $('#e_name').value=e?(e.name||''):''; $('#e_pfx').value=e?((e.prefixes||[]).join(', ')):''; openM('m-emp'); }
+    $('#e_name').value=e?(e.name||''):''; $('#e_pfx').value=e?((e.prefixes||[]).join(', ')):''; $('#e_clear').value=e?(e.clearDate||''):''; openM('m-emp'); }
   function toggleEmp(open){ var w=$('#empWrap'); if(!w) return; var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#empChev').classList.toggle('down',willOpen); if(willOpen) renderEmpList(); }
   $('#empHead').addEventListener('click',function(e){ if(e.target.closest('#addEmp')) return; toggleEmp(); });
   $('#addEmp').addEventListener('click',function(e){ e.stopPropagation(); openEmp(null); });
   $('#empSave').addEventListener('click',function(){
     var name=$('#e_name').value.trim(); if(!name){ toast('Enter a company name'); return; }
     var pfx=$('#e_pfx').value.split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
-    var obj={id:editEid||uid(),name:name,prefixes:pfx,_c:Date.now()};
+    var cd=($('#e_clear').value||'').trim();
+    var obj={id:editEid||uid(),name:name,prefixes:pfx,clearDate:cd,_c:Date.now()};
     if(editEid){ var old=S.employers.filter(function(x){return x.id===editEid;})[0]; if(old&&old._c) obj._c=old._c; }
     put('employers',obj).then(reload).then(function(){ closeM(); renderEmpList(); if($('#view-dash').classList.contains('active')) renderDash(); toast(editEid?'Updated':'Employer saved'); });
   });
