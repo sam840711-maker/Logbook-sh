@@ -385,10 +385,8 @@
       </div>
       <div class="section-head acsec" id="actHead"><h2>Aircraft types <span class="cnt" id="actCount">(0)</span></h2><span class="chev" id="actChev">&#9656;</span></div>
       <div id="actWrap" class="collapse">
-        <div style="display:flex; gap:8px; margin-bottom:10px">
-          <input class="fld mono" id="actNew" placeholder="e.g. B787-9" style="flex:1; margin-bottom:0">
-          <button class="btn ghost sm" id="actAdd">Add</button>
-        </div>
+        <input class="fld mono" id="actNew" placeholder="e.g. B787-9" style="margin-bottom:8px">
+        <button class="btn ghost sm" id="actAdd" style="width:100%; margin-bottom:10px">Add type</button>
         <div id="actList"></div>
         <div class="fhint" style="margin-top:8px">Choices shown when you import a flight with a new registration. Edit when you change fleet or airline.</div>
       </div>
@@ -433,8 +431,6 @@
         <button class="btn danger sm" id="wipe">Delete all</button>
       </div>
       <button class="btn ghost sm filebtn" id="impPilotlogBtn" style="margin-top:10px; width:100%">Import CrewLounge PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
-      <button class="btn ghost sm" id="fillPic" style="margin-top:10px; width:100%">Copy captain from "C." remarks &rarr; PIC name</button>
-      <div class="fhint" style="margin-top:6px">Fills the PIC name field from remarks starting with "C." where PIC name is still empty. Remarks are kept; a restore point is saved first.</div>
       <div class="fhint" style="margin-top:10px">Data is stored only on this device (IndexedDB). Back up to JSON regularly; restore replaces all current data. PILOTLOG import adds flights, sim sessions and aircraft, skipping duplicates.</div>
 
       <div class="section-head acsec" id="snapHead"><h2>Restore points <span class="cnt" id="snapCount">(0)</span></h2><span class="chev" id="snapChev">&#9656;</span><button class="add" id="snapNow">+ Save now</button></div>
@@ -537,8 +533,6 @@
         <option>Multi-engine Jet (ME Jet)</option><option>Single-engine Jet (SE Jet)</option>
         <option>Multi-engine Piston (MEP)</option><option>Single-engine Piston (SEP)</option><option>Turboprop</option><option>Helicopter</option><option>Other</option>
       </select></div>
-    <div class="fgroup"><label>Engine</label>
-      <select class="fld" id="a_engine"><option>Jet</option><option>Turboprop</option><option>Piston</option><option>Other</option></select></div>
     <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="a_multi" checked><span>Multi-pilot aircraft</span></label>
     <div class="fgroup"><label>Remarks</label><input class="fld" id="a_rem" placeholder="Optional"></div>
   </div>
@@ -1313,14 +1307,16 @@
   var editAid=null;
   function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'Edit aircraft':'Add aircraft'; $('#acDel').style.display=a?'block':'none';
     $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'Multi-engine Jet (ME Jet)';
-    $('#a_engine').value=a?a.engine:'Jet'; $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
+    $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
   $('#addAc').addEventListener('click',function(e){ e.stopPropagation(); openAc(null); });
   function toggleAc(open){ var w=$('#acWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#acChev').classList.toggle('down',willOpen); }
   $('#acHead').addEventListener('click',function(e){ if(e.target.closest('#addAc')) return; toggleAc(); });
   $('#acSearch').addEventListener('input',function(){ if(this.value.trim()) toggleAc(true); renderAcList(); });
+  function engineFromClass(c){ c=c||''; if(/jet/i.test(c)) return 'Jet'; if(/turboprop/i.test(c)) return 'Turboprop'; if(/piston/i.test(c)) return 'Piston'; return 'Other'; }
   $('#acSave').addEventListener('click',function(){
     var reg=$('#a_reg').value.trim().toUpperCase(); if(!reg){ toast('Enter a registration'); return; }
-    var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:$('#a_class').value,engine:$('#a_engine').value,multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
+    var cls=$('#a_class').value;
+    var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:cls,engine:engineFromClass(cls),multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
     put('aircraft',obj).then(reload).then(function(){ closeM(); go('more'); toast(editAid?'Updated':'Aircraft saved'); });
   });
   $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('Delete this aircraft?')) return;
@@ -1425,17 +1421,6 @@
   $('#wipe').addEventListener('click',function(){ if(!confirm('Permanently delete all data. Have you backed up?')) return;
     if(!confirm('Really delete everything? A restore point of the current data is saved first, so this can be undone from Restore points.')) return;
     saveSnapshot('before delete-all').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(reload).then(function(){ go('dash'); toast('All data deleted'); if(snapSectionOpen) renderSnapList(); }); });
-
-  // One-time: copy captain stored in remarks ("C.<name>") into the PIC name field where it's still empty. Remarks untouched.
-  if($('#fillPic')) $('#fillPic').addEventListener('click',function(){
-    var cand=S.flights.filter(function(f){ if((f.picName||'').trim()) return false; var m=(f.rem||'').match(/^C\.\s*([^\/]+)/); return !!(m && m[1].trim()); });
-    if(!cand.length){ toast('No flights need filling'); return; }
-    if(!confirm('Fill PIC name from "C." remarks for '+cand.length+' flight(s)?\nExisting PIC names are kept and remarks are unchanged. A restore point is saved first.')) return;
-    saveSnapshot('before PIC-name fill').then(function(){
-      var items=cand.map(function(f){ var m=(f.rem||'').match(/^C\.\s*([^\/]+)/); var o={}; for(var k in f) o[k]=f[k]; o.picName=m[1].trim(); return {store:'flights',obj:o}; });
-      return bulkWrite(items);
-    }).then(reload).then(function(){ go('log'); toast('Filled PIC name in '+cand.length+' flight(s)'); });
-  });
 
   /* ---------- restore points (auto snapshots) ---------- */
   var SNAP_MAX=10, snapSectionOpen=false;
