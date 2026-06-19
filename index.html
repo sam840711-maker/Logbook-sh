@@ -524,7 +524,7 @@
   <div class="sheet-body">
     <div class="frow c2">
       <div class="fgroup"><label>Registration</label><input class="fld" id="a_reg" placeholder="HL8888" autocapitalize="characters"></div>
-      <div class="fgroup"><label>Type</label><input class="fld" id="a_type" placeholder="A321" autocapitalize="characters"></div>
+      <div class="fgroup"><label>Type</label><input class="fld" id="a_type" list="aTypeList" placeholder="A321" autocapitalize="characters"><datalist id="aTypeList"></datalist></div>
     </div>
     <div class="fgroup"><label>Class</label>
       <select class="fld" id="a_class">
@@ -1061,6 +1061,10 @@
     return out;
   }
   function refreshAcTypeDatalist(){ var el=$('#acTypeDatalist'); if(el) el.innerHTML=distinctTypes().map(function(t){return '<option value="'+esc(t)+'"></option>';}).join(''); }
+  // Aircraft form Type field: suggest the managed Aircraft-types list first, then any types already in the registry.
+  function refreshATypeList(){ var el=$('#aTypeList'); if(!el) return; var seen={}, out=[];
+    (typeof loadAcTypes==='function'?loadAcTypes():[]).concat(distinctTypes()).forEach(function(t){ t=(t||'').trim(); var k=t.toUpperCase(); if(t && !seen[k]){ seen[k]=1; out.push(t); } });
+    el.innerHTML=out.map(function(t){ return '<option value="'+esc(t)+'"></option>'; }).join(''); }
   function devLabel(v){ return (v.type||'(no type)')+(v.name?(' \u00b7 '+v.name):'')+(v.level?(' \u00b7 '+v.level):''); }
   function fillSimDevSelect(selDevId, legacyType){
     var devs=S.simdevices.slice().sort(function(a,b){ return (a.type||'').localeCompare(b.type||'')||(a.name||'').localeCompare(b.name||''); });
@@ -1317,7 +1321,7 @@
 
   /* ---------- AIRCRAFT form ---------- */
   var editAid=null;
-  function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'Edit aircraft':'Add aircraft'; $('#acDel').style.display=a?'block':'none';
+  function openAc(a){ editAid=a?a.id:null; $('#acTitle').textContent=a?'Edit aircraft':'Add aircraft'; $('#acDel').style.display=a?'block':'none'; refreshATypeList();
     $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'Multi-engine Jet (ME Jet)';
     $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
   $('#addAc').addEventListener('click',function(e){ e.stopPropagation(); openAc(null); });
