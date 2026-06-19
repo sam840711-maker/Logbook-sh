@@ -1385,16 +1385,29 @@
       if(mp==='on') u.multi=true; else if(mp==='off') u.multi=false;
       return u;
     }).filter(Boolean);
-    Promise.all(ups.map(function(u){return put('aircraft',u);})).then(reload).then(function(){ closeM(); acSelMode=false; acSel={}; renderAcList(); updateAcSelUI(); toast(ups.length+' updated'); }); });
+    Promise.all(ups.map(function(u){return put('aircraft',u);}))
+      .then(function(){ return Promise.all(ups.map(propagateAircraft)); })
+      .then(function(counts){ var nf=counts.reduce(function(a,b){return a+(b||0);},0);
+        reload().then(function(){ closeM(); acSelMode=false; acSel={}; renderAcList(); updateAcSelUI(); toast(ups.length+' updated'+(nf?(' \u00b7 '+nf+' flights synced'):'')); }); }); });
   function toggleAc(open){ var w=$('#acWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#acChev').classList.toggle('down',willOpen); }
   $('#acHead').addEventListener('click',function(e){ if(e.target.closest('#addAc')) return; toggleAc(); });
   $('#acSearch').addEventListener('input',function(){ if(this.value.trim()) toggleAc(true); renderAcList(); });
   function engineFromClass(c){ c=c||''; if(/jet/i.test(c)) return 'Jet'; if(/turboprop/i.test(c)) return 'Turboprop'; if(/piston/i.test(c)) return 'Piston'; return 'Other'; }
+  // Keep flights in sync with the registry: update acType/acClass/acMulti on every flight of this reg.
+  function propagateAircraft(ac){ if(!ac||!ac.reg) return Promise.resolve(0);
+    var reg=(ac.reg||'').toUpperCase();
+    var ups=S.flights.filter(function(f){ return (f.reg||'').toUpperCase()===reg && (f.acType!==ac.type || f.acClass!==ac.cls || !!f.acMulti!==!!ac.multi); })
+      .map(function(f){ var u={}; for(var k in f) u[k]=f[k]; u.acType=ac.type; u.acClass=ac.cls; u.acMulti=!!ac.multi; return u; });
+    if(!ups.length) return Promise.resolve(0);
+    return Promise.all(ups.map(function(u){return put('flights',u);})).then(function(){ return ups.length; });
+  }
   $('#acSave').addEventListener('click',function(){
     var reg=$('#a_reg').value.trim().toUpperCase(); if(!reg){ toast('Enter a registration'); return; }
     var cls=$('#a_class').value;
     var obj={id:editAid||uid(),reg:reg,type:$('#a_type').value.trim().toUpperCase(),cls:cls,engine:engineFromClass(cls),multi:$('#a_multi').checked,rem:$('#a_rem').value.trim()};
-    put('aircraft',obj).then(reload).then(function(){ closeM(); go('more'); toast(editAid?'Updated':'Aircraft saved'); });
+    put('aircraft',obj).then(function(){ return propagateAircraft(obj); }).then(function(n){
+      reload().then(function(){ closeM(); go('more'); toast((editAid?'Updated':'Aircraft saved')+(n?(' \u00b7 '+n+' flights synced'):'')); });
+    });
   });
   $('#acDel').addEventListener('click',function(){ if(!editAid) return; if(!confirm('Delete this aircraft?')) return;
     del('aircraft',editAid).then(reload).then(function(){ closeM(); go('more'); toast('Deleted'); }); });
