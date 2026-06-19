@@ -433,6 +433,8 @@
         <button class="btn danger sm" id="wipe">Delete all</button>
       </div>
       <button class="btn ghost sm filebtn" id="impPilotlogBtn" style="margin-top:10px; width:100%">Import CrewLounge PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
+      <button class="btn ghost sm" id="fillPic" style="margin-top:10px; width:100%">Copy captain from "C." remarks &rarr; PIC name</button>
+      <div class="fhint" style="margin-top:6px">Fills the PIC name field from remarks starting with "C." where PIC name is still empty. Remarks are kept; a restore point is saved first.</div>
       <div class="fhint" style="margin-top:10px">Data is stored only on this device (IndexedDB). Back up to JSON regularly; restore replaces all current data. PILOTLOG import adds flights, sim sessions and aircraft, skipping duplicates.</div>
 
       <div class="section-head acsec" id="snapHead"><h2>Restore points <span class="cnt" id="snapCount">(0)</span></h2><span class="chev" id="snapChev">&#9656;</span><button class="add" id="snapNow">+ Save now</button></div>
@@ -1423,6 +1425,17 @@
   $('#wipe').addEventListener('click',function(){ if(!confirm('Permanently delete all data. Have you backed up?')) return;
     if(!confirm('Really delete everything? A restore point of the current data is saved first, so this can be undone from Restore points.')) return;
     saveSnapshot('before delete-all').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(reload).then(function(){ go('dash'); toast('All data deleted'); if(snapSectionOpen) renderSnapList(); }); });
+
+  // One-time: copy captain stored in remarks ("C.<name>") into the PIC name field where it's still empty. Remarks untouched.
+  if($('#fillPic')) $('#fillPic').addEventListener('click',function(){
+    var cand=S.flights.filter(function(f){ if((f.picName||'').trim()) return false; var m=(f.rem||'').match(/^C\.\s*([^\/]+)/); return !!(m && m[1].trim()); });
+    if(!cand.length){ toast('No flights need filling'); return; }
+    if(!confirm('Fill PIC name from "C." remarks for '+cand.length+' flight(s)?\nExisting PIC names are kept and remarks are unchanged. A restore point is saved first.')) return;
+    saveSnapshot('before PIC-name fill').then(function(){
+      var items=cand.map(function(f){ var m=(f.rem||'').match(/^C\.\s*([^\/]+)/); var o={}; for(var k in f) o[k]=f[k]; o.picName=m[1].trim(); return {store:'flights',obj:o}; });
+      return bulkWrite(items);
+    }).then(reload).then(function(){ go('log'); toast('Filled PIC name in '+cand.length+' flight(s)'); });
+  });
 
   /* ---------- restore points (auto snapshots) ---------- */
   var SNAP_MAX=10, snapSectionOpen=false;
