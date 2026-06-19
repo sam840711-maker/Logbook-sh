@@ -226,6 +226,8 @@
   .logbar{display:flex; align-items:center; gap:6px; margin:2px 2px 10px}
   .logbar-r{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
   .fcard.selon{border-color:var(--cyan); box-shadow:inset 0 0 0 1px var(--cyan)}
+.row.acrow.picking{cursor:pointer}
+.row.acrow.selon{border:1px solid var(--cyan); box-shadow:inset 0 0 0 1px var(--cyan)}
   .fcard.picking{cursor:pointer}
   .fcard.picking .seldot{display:inline-flex}
   .seldot{display:none; align-items:center; justify-content:center; width:20px; height:20px; flex:0 0 auto; margin-right:8px; border-radius:50%; border:1.5px solid var(--line); color:transparent; font-size:12px}
@@ -380,6 +382,13 @@
       <p class="eyebrow">Manage</p>
       <div class="section-head acsec" id="acHead"><h2>Aircraft <span class="cnt" id="acCount">(0)</span></h2><span class="chev" id="acChev">&#9656;</span><button class="add" id="addAc">+ Aircraft</button></div>
       <div id="acWrap" class="collapse">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px">
+          <button type="button" class="chip" id="acSelBtn">Select</button>
+          <button type="button" class="chip" id="acSelAll" style="display:none">All</button>
+          <button type="button" class="chip" id="acBulkEdit" style="display:none">Edit</button>
+          <button type="button" class="chip danger" id="acBulkDel" style="display:none">Delete</button>
+          <button type="button" class="chip" id="acSelCancel" style="display:none">Cancel</button>
+        </div>
         <input class="fld" id="acSearch" placeholder="Search registration or type..." style="margin-bottom:10px">
         <div id="acList"></div>
       </div>
@@ -625,6 +634,19 @@
     <div class="fhint">Shown as a choice when you import a flight with a new registration.</div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="typeSave">Save</button></div>
+</div></div>
+
+<div class="modal" id="m-acbulk"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3 id="acbulkTitle">Edit selected</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0">Only the fields you set are applied to the selected aircraft.</p>
+    <div class="fgroup"><label>Type</label><input class="fld mono" id="ab_type" list="aTypeList" placeholder="Leave blank to keep" autocapitalize="characters"></div>
+    <div class="fgroup"><label>Class</label>
+      <select class="fld" id="ab_class"><option value="">Keep current</option><option>Multi-engine Jet (ME Jet)</option><option>Single-engine Jet (SE Jet)</option><option>Multi-engine Piston (MEP)</option><option>Single-engine Piston (SEP)</option><option>Turboprop</option><option>Helicopter</option><option>Other</option></select></div>
+    <div class="fgroup"><label>Multi-pilot</label>
+      <select class="fld" id="ab_multi"><option value="">Keep current</option><option value="on">Multi-pilot</option><option value="off">Single-pilot</option></select></div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="acbulkApply">Apply</button></div>
 </div></div>
 
 <div class="modal" id="m-bulk"><div class="scrim" data-close></div><div class="sheet">
@@ -999,6 +1021,21 @@
   }
 
   /* ---------- MORE: aircraft + credentials ---------- */
+  var acSelMode=false, acSel={};
+  function acVisible(){ var q=($('#acSearch')?$('#acSearch').value:'').trim().toUpperCase();
+    return S.aircraft.filter(function(a){ if(!q) return true; return (a.reg||'').toUpperCase().indexOf(q)>=0 || (a.type||'').toUpperCase().indexOf(q)>=0; }); }
+  function acSelCount(){ return Object.keys(acSel).length; }
+  function updateAcSelUI(){ var n=acSelCount();
+    var sb=$('#acSelBtn'); if(sb) sb.style.display=acSelMode?'none':'';
+    ['acSelAll','acBulkEdit','acBulkDel','acSelCancel'].forEach(function(id){ var el=$('#'+id); if(el) el.style.display=acSelMode?'':'none'; });
+    if(acSelMode){ var be=$('#acBulkEdit'), bd=$('#acBulkDel');
+      if(be){ be.textContent='Edit ('+n+')'; be.disabled=(n===0); be.style.opacity=(n===0?'.45':'1'); }
+      if(bd){ bd.textContent='Delete ('+n+')'; bd.disabled=(n===0); bd.style.opacity=(n===0?'.45':'1'); } }
+  }
+  function enterAcSel(){ acSelMode=true; acSel={}; toggleAc(true); renderAcList(); updateAcSelUI(); }
+  function exitAcSel(){ acSelMode=false; acSel={}; renderAcList(); updateAcSelUI(); }
+  function toggleAcSel(id){ if(acSel[id]) delete acSel[id]; else acSel[id]=true;
+    var row=$('#acList .acrow[data-aid="'+id+'"]'); if(row) row.classList.toggle('selon',!!acSel[id]); updateAcSelUI(); }
   function renderAcList(){
     $('#acCount').textContent='('+S.aircraft.length+')';
     var ac=$('#acList');
@@ -1011,7 +1048,7 @@
     ac.innerHTML=keys.map(function(k){
       var items=groups[k].slice().sort(function(a,b){return (a.reg||'').localeCompare(b.reg||'');});
       return '<div class="acgrp">'+esc(k)+' <span>'+items.length+'</span></div>'+items.map(function(a){
-        return '<div class="row" data-aid="'+a.id+'"><div class="main"><div class="t mono">'+esc(a.reg||'')+'</div>'+
+        return '<div class="row acrow'+(acSelMode?' picking':'')+(acSel[a.id]?' selon':'')+'" data-aid="'+a.id+'"><div class="main"><div class="t mono">'+esc(a.reg||'')+'</div>'+
           '<div class="s">'+esc(a.cls||'')+(a.multi?' \u00b7 MP':'')+'</div></div></div>';
       }).join('');
     }).join('');
@@ -1325,6 +1362,30 @@
     $('#a_reg').value=a?a.reg:''; $('#a_type').value=a?a.type:''; $('#a_class').value=a?a.cls:'Multi-engine Jet (ME Jet)';
     $('#a_multi').checked=a?!!a.multi:true; $('#a_rem').value=a?(a.rem||''):''; openM('m-ac'); }
   $('#addAc').addEventListener('click',function(e){ e.stopPropagation(); openAc(null); });
+  if($('#acSelBtn')) $('#acSelBtn').addEventListener('click',function(e){ e.stopPropagation(); enterAcSel(); });
+  if($('#acSelCancel')) $('#acSelCancel').addEventListener('click',function(e){ e.stopPropagation(); exitAcSel(); });
+  if($('#acSelAll')) $('#acSelAll').addEventListener('click',function(e){ e.stopPropagation();
+    var vis=acVisible(); var all=vis.length && vis.every(function(a){return acSel[a.id];});
+    acSel={}; if(!all) vis.forEach(function(a){ acSel[a.id]=true; }); renderAcList(); updateAcSelUI(); });
+  if($('#acBulkDel')) $('#acBulkDel').addEventListener('click',function(e){ e.stopPropagation();
+    var ids=Object.keys(acSel); if(!ids.length) return;
+    if(!confirm('Delete '+ids.length+' selected aircraft? Flights already logged are not affected.')) return;
+    Promise.all(ids.map(function(id){return del('aircraft',id);})).then(reload).then(function(){ acSelMode=false; acSel={}; renderAcList(); updateAcSelUI(); toast(ids.length+' deleted'); }); });
+  if($('#acBulkEdit')) $('#acBulkEdit').addEventListener('click',function(e){ e.stopPropagation();
+    if(!acSelCount()) return; refreshATypeList(); $('#ab_type').value=''; $('#ab_class').value=''; $('#ab_multi').value='';
+    $('#acbulkTitle').textContent='Edit '+acSelCount()+' selected'; openM('m-acbulk'); });
+  if($('#acbulkApply')) $('#acbulkApply').addEventListener('click',function(){
+    var ids=Object.keys(acSel); if(!ids.length){ closeM(); return; }
+    var ty=$('#ab_type').value.trim().toUpperCase(), cl=$('#ab_class').value, mp=$('#ab_multi').value;
+    if(!ty && !cl && !mp){ closeM(); return; }
+    var ups=ids.map(function(id){ var o=S.aircraft.filter(function(x){return x.id===id;})[0]; if(!o) return null;
+      var u={}; for(var k in o) u[k]=o[k];
+      if(ty) u.type=ty;
+      if(cl){ u.cls=cl; u.engine=engineFromClass(cl); }
+      if(mp==='on') u.multi=true; else if(mp==='off') u.multi=false;
+      return u;
+    }).filter(Boolean);
+    Promise.all(ups.map(function(u){return put('aircraft',u);})).then(reload).then(function(){ closeM(); acSelMode=false; acSel={}; renderAcList(); updateAcSelUI(); toast(ups.length+' updated'); }); });
   function toggleAc(open){ var w=$('#acWrap'); var willOpen = open!=null?open : !w.classList.contains('open'); w.classList.toggle('open',willOpen); $('#acChev').classList.toggle('down',willOpen); }
   $('#acHead').addEventListener('click',function(e){ if(e.target.closest('#addAc')) return; toggleAc(); });
   $('#acSearch').addEventListener('input',function(){ if(this.value.trim()) toggleAc(true); renderAcList(); });
@@ -1396,7 +1457,7 @@
     var sb=e.target.closest('[data-scope]'); if(sb){ dashScope=sb.getAttribute('data-scope'); $$('#dashSeg button').forEach(function(b){ b.classList.toggle('on', b===sb); }); renderDash(); return; }
     var r=e.target.closest('[data-fid]'); if(r){ var fid=r.getAttribute('data-fid'); if(selMode){ toggleSel(fid); return; } var f=S.flights.filter(function(x){return x.id===fid;})[0]; if(f) openFlight(f); return; }
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
-    var ar=e.target.closest('[data-aid]'); if(ar){ var a=S.aircraft.filter(function(x){return x.id===ar.getAttribute('data-aid');})[0]; if(a) openAc(a); return; }
+    var ar=e.target.closest('[data-aid]'); if(ar){ var aid=ar.getAttribute('data-aid'); if(acSelMode){ toggleAcSel(aid); return; } var a=S.aircraft.filter(function(x){return x.id===aid;})[0]; if(a) openAc(a); return; }
     var dr=e.target.closest('[data-did]'); if(dr){ var v=S.simdevices.filter(function(x){return x.id===dr.getAttribute('data-did');})[0]; if(v) openDev(v); return; }
     var aup=e.target.closest('[data-actup]'); if(aup){ var cu=aup.getAttribute('data-actup'); var lu=loadAcTypes(); var iu=lu.indexOf(cu); if(iu>0){ var tu=lu[iu-1]; lu[iu-1]=lu[iu]; lu[iu]=tu; saveAcTypes(lu); renderActList(); } return; }
     var adn=e.target.closest('[data-actdown]'); if(adn){ var cd=adn.getAttribute('data-actdown'); var ld=loadAcTypes(); var idn=ld.indexOf(cd); if(idn>=0 && idn<ld.length-1){ var td=ld[idn+1]; ld[idn+1]=ld[idn]; ld[idn]=td; saveAcTypes(ld); renderActList(); } return; }
