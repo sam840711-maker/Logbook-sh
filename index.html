@@ -606,6 +606,15 @@
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="pasteParse">Parse &amp; review</button></div>
 </div></div>
 
+<div class="modal" id="m-actype"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3>New aircraft</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0"><b id="actypeReg"></b> isn't registered yet. Which type?</p>
+    <div id="actypeBtns" style="display:flex; flex-direction:column; gap:8px; margin-top:6px"></div>
+    <p class="fhint" style="margin-top:10px">Saved to your aircraft registry — you'll only pick this once per tail.</p>
+  </div>
+</div></div>
+
 <div class="modal" id="m-bulk"><div class="scrim" data-close></div><div class="sheet">
   <div class="sheet-head"><h3 id="bulkTitle">Edit selected</h3><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
@@ -1148,11 +1157,33 @@
     var crew=data.crew||data.crews||null;
     var shared={ reg:data.reg||data.registration||'', date:data.date||'', picName:data.picName||data.pic||data.captain||'',
       myNo:(data.myNo!=null?data.myNo:myCrewNo(crew)) };
-    pasteAll=legs.map(function(l){ return legToFlight(shared,l); }); pasteIdx=0;
-    closeM(); openReview();
+    var finish=function(){ pasteAll=legs.map(function(l){ return legToFlight(shared,l); }); pasteIdx=0; closeM(); openReview(); };
+    // New aircraft handling: JSON acType wins; otherwise ask once (B738 / B38M) and register. No stale fleet list to maintain.
+    var aReg=(shared.reg||'').toUpperCase(); var aType=data.acType||data.type||'';
+    var doReg=function(t){ put('aircraft',{ id:uid(), reg:aReg, type:t, cls:data.acClass||'Multi-engine Jet (ME Jet)',
+        engine:data.engine||'Jet', multi:(data.acMulti!=null?!!data.acMulti:true), rem:'auto-added from import' })
+        .then(reload).then(function(){ toast('Aircraft '+aReg+' added ('+t+')'); finish(); }); };
+    if(aReg && !acByReg(aReg)){ if(aType) doReg(aType); else askAcType(aReg,doReg); }
+    else { finish(); }
   });
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function mpType(){ var a=acByReg($('#f_reg').value); return a?!!a.multi:false; }
+  // One-tap type chooser for a newly seen registration (Sam flies 737 only: B738 or B38M). Robust to fleet transition.
+  // Selectable aircraft types for the new-tail chooser. Edit this one list when changing fleets/employers.
+  // Current: t'way 737 family + Boeing 787 (Etihad) variants.
+  var AC_TYPES=[ {code:'B737-800'}, {code:'B38M-8',note:'MAX 8'}, {code:'B787-8'}, {code:'B787-9'}, {code:'B787-10'} ];
+  var pendingAc=null;
+  function askAcType(reg,onPick){ pendingAc={reg:reg,onPick:onPick};
+    var r=$('#actypeReg'); if(r) r.textContent=reg;
+    var isMax=!!(window.FLEET_MAX && FLEET_MAX[(reg||'').toUpperCase()]);
+    var rec=isMax?'B38M-8':'B737-800';
+    var box=$('#actypeBtns');
+    if(box){ box.innerHTML='';
+      AC_TYPES.forEach(function(o){ var b=document.createElement('button');
+        b.className='btn '+(o.code===rec?'primary':'ghost'); b.textContent=o.code+(o.note?(' ('+o.note+')'):'');
+        b.addEventListener('click',function(){ pickAc(o.code); }); box.appendChild(b); }); }
+    closeM(); openM('m-actype'); }
+  function pickAc(t){ var p=pendingAc; pendingAc=null; closeM(); if(p&&p.onPick) p.onPick(t); }
   function refreshMP(){ var el=$('#f_mp'); if(!el) return; var b=parseDur($('#f_total').value);
     if(mpType()){ if(el._auto || !el.value){ el.value=b?fmtHM(b):''; el._auto=true; } }
     else { if(el._auto){ el.value=''; el._auto=true; } } }
@@ -1162,6 +1193,9 @@
   function syncLinks(){ var b=parseDur($('#f_total').value);
     $$('.lnk').forEach(function(cb){ if(cb.checked){ var el=$('#'+cb.getAttribute('data-for')); if(el) el.value=b?fmtHM(b):''; } }); }
   function resolveApt(code){ code=String(code||'').trim().toUpperCase(); if(code.length===3 && window.AIRPORTS_IATA && window.AIRPORTS_IATA[code]) return window.AIRPORTS_IATA[code]; return code; }
+  // t'way Air Boeing 737 MAX 8 (B38M) registrations — Sam flies 737 only, so any other new reg defaults to B737-800.
+  // Update this set as new MAX deliveries arrive (ACG delivering 7 MAX through 2026).
+  window.FLEET_MAX={ HL8513:1, HL8514:1, HL8579:1, HL8580:1, HL8581:1, HL8752:1, HL8753:1 };
   // Local decimal hour at an airport for a given UTC minute (via timezone in airports.js). null if tz unknown.
   function locHour(icao,dateStr,utcMin){ if(utcMin==null) return null; var lc=localClock(resolveApt(icao),dateStr,utcMin); if(!lc) return null; var p=lc.split(':'); return (+p[0])+(+p[1])/60; }
   // Coordinate-free night takeoff/landing classification using the logged NIGHT duration + airport timezones.
