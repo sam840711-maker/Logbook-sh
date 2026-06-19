@@ -345,6 +345,7 @@
           <div class="fgroup"><label>YEAR</label><select class="fld" id="logYear"><option value="">All</option></select></div>
           <div class="fgroup"><label>MONTH</label><select class="fld" id="logMonth"><option value="">All</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select></div>
         </div>
+        <div class="fgroup"><label>EMPLOYER</label><select class="fld" id="logEmp"><option value="">All</option></select></div>
         <div class="fgroup"><label>AIRCRAFT</label><input class="fld mono" id="logReg" placeholder="aircraft registration"></div>
         <div class="fgroup"><label>AIRFIELD</label><input class="fld mono" id="logApt" placeholder="ICAO, IATA"></div>
         <div class="fgroup"><label>OTHER</label><input class="fld" id="logQ" placeholder="flight no, pilot, remarks, type"></div>
@@ -918,7 +919,7 @@
   }
 
   /* ---------- LOGBOOK ---------- */
-  var logFilter={year:'',month:'',reg:'',apt:'',q:'',auto:false};
+  var logFilter={year:'',month:'',emp:'',reg:'',apt:'',q:'',auto:false};
   var selMode=false, logSel={};
   function selCount(){ return Object.keys(logSel).length; }
   function updateSelUI(){
@@ -937,6 +938,7 @@
   function flightMatch(f){
     if(logFilter.year && (f.date||'').slice(0,4)!==logFilter.year) return false;
     if(logFilter.month && (f.date||'').slice(5,7)!==logFilter.month) return false;
+    if(logFilter.emp){ var fe=employerOf(f.fno); if(logFilter.emp==='__UNASSIGNED__'){ if(fe) return false; } else if(fe!==logFilter.emp) return false; }
     if(logFilter.auto && !(f.auto>0)) return false;
     if(logFilter.reg && (f.reg||'').toUpperCase().indexOf(logFilter.reg)<0) return false;
     if(logFilter.apt){
@@ -958,9 +960,21 @@
     sel.innerHTML='<option value="">All</option>'+list.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
     sel.value=cur;
   }
-  function filterActive(){ return logFilter.year||logFilter.month||logFilter.reg||logFilter.apt||logFilter.q||logFilter.auto; }
+  function fillLogEmployers(){
+    var sel=$('#logEmp'); if(!sel) return;
+    var names=(S.employers||[]).map(function(e){return e.name||'';}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
+    var hasUnassigned=S.flights.some(function(f){ return !employerOf(f.fno); });
+    var cur=logFilter.emp;
+    sel.innerHTML='<option value="">All</option>'
+      +names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')
+      +(hasUnassigned?'<option value="__UNASSIGNED__">Unassigned</option>':'');
+    sel.value=cur;
+    if(sel.value!==cur){ logFilter.emp=''; sel.value=''; }
+  }
+  function filterActive(){ return logFilter.year||logFilter.month||logFilter.emp||logFilter.reg||logFilter.apt||logFilter.q||logFilter.auto; }
   function renderLog(){
     fillLogYears();
+    fillLogEmployers();
     if(!S.flights.length){ $('#logList').innerHTML=''; $('#logTotals').innerHTML=''; $('#logCount').textContent='';
       $('#logEmpty').innerHTML='<div class="empty" style="margin-top:12px"><b>Logbook is empty</b>Start with the + Flight button.</div>'; return; }
     var list=S.flights.filter(flightMatch);
@@ -974,13 +988,14 @@
   function initLogFilter(){
     var y=$('#logYear'); if(y) y.addEventListener('change',function(){ logFilter.year=this.value; renderLog(); });
     var mo=$('#logMonth'); if(mo) mo.addEventListener('change',function(){ logFilter.month=this.value; renderLog(); });
+    var em=$('#logEmp'); if(em) em.addEventListener('change',function(){ logFilter.emp=this.value; renderLog(); });
     var rg=$('#logReg'); if(rg) rg.addEventListener('input',function(){ logFilter.reg=this.value.trim().toUpperCase(); renderLog(); });
     var ap=$('#logApt'); if(ap) ap.addEventListener('input',function(){ logFilter.apt=this.value.trim().toUpperCase(); renderLog(); });
     var q=$('#logQ'); if(q) q.addEventListener('input',function(){ logFilter.q=this.value.trim(); renderLog(); });
     var al=$('#logAL'); if(al) al.addEventListener('click',function(){ logFilter.auto=!logFilter.auto; al.classList.toggle('on',logFilter.auto); renderLog(); });
     var clr=$('#logClr'); if(clr) clr.addEventListener('click',function(){
-      logFilter={year:'',month:'',reg:'',apt:'',q:'',auto:false};
-      if(y) y.value=''; if(mo) mo.value=''; if(rg) rg.value=''; if(ap) ap.value=''; if(q) q.value='';
+      logFilter={year:'',month:'',emp:'',reg:'',apt:'',q:'',auto:false};
+      if(y) y.value=''; if(mo) mo.value=''; if(em) em.value=''; if(rg) rg.value=''; if(ap) ap.value=''; if(q) q.value='';
       if(al) al.classList.remove('on');
       renderLog();
     });
