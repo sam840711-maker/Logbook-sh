@@ -263,6 +263,8 @@
   #dashCurr .bar .bv{padding-left:8px}
   #dashEmp .bar{grid-template-columns:104px 1fr auto}
   #dashEmp .bar .bv{padding-left:8px}
+  .bar .bt.estack{display:flex}
+  .bar .bt.estack .bf{border-radius:0}
   @media (prefers-reduced-motion:reduce){.bar .bf{transition:none}}
   .fcard{display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:center; background:var(--panel);
     border:1px solid var(--line-soft); border-left:3px solid var(--cyan-dim); border-radius:10px; padding:10px 12px; margin-bottom:7px; cursor:pointer}
@@ -325,8 +327,6 @@
         <div class="total mono" id="dashTotal">0:00</div>
         <div class="sub"><b id="dashFlights">0</b> flights · <b id="dashLdg">0</b> landings · avg <b id="dashAvg">0:00</b>/leg</div>
       </div>
-      <div class="section-head"><h2>Aircraft model</h2></div>
-      <div class="bars" id="dashModel"></div>
       <div class="section-head"><h2>Function</h2></div>
       <div class="bars" id="dashFunc"></div>
       <div class="section-head"><h2>Flight condition</h2></div>
@@ -337,6 +337,8 @@
       <div id="dashEmp"></div>
       <div class="section-head"><h2>Recency &amp; currency</h2></div>
       <div id="dashRecency"></div>
+      <div class="section-head"><h2>Aircraft model</h2></div>
+      <div class="bars" id="dashModel"></div>
       <div class="appfoot" id="appfoot"></div>
     </section>
 
@@ -886,15 +888,19 @@
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
     var phByName={}; empPhaseStats().forEach(function(p){ phByName[p.name]=p; });
-    var be={}; S.flights.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; if(!be[k]) be[k]={t:0,n:0}; be[k].t+=(f.total||0); be[k].n++; });
-    var emps=Object.keys(be).map(function(k){return {name:k,t:be[k].t,n:be[k].n};}).sort(function(a,b){return b.t-a.t;});
+    var be={}; S.flights.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; be[k]=(be[k]||0)+(f.total||0); });
+    var emps=Object.keys(be).map(function(k){return {name:k,t:be[k]};}).sort(function(a,b){return b.t-a.t;});
     var emax=Math.max.apply(null,emps.map(function(m){return m.t;}).concat([1]));
-    if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){ var p=phByName[m.name];
-        var meta=(p&&p.clearDate?('cleared '+esc(p.clearDate)+' \u00b7 '):'')+fmtHM(m.t);
-        var hd='<div class="phasehd">'+esc(m.name)+'<span class="phasecl">'+meta+'</span></div>';
-        if(p && p.clearDate){ var mx=Math.max(p.training,p.line,1);
-          return '<div class="phaseblk">'+hd+bar('Training ('+p.ntr+')',p.training,mx,'amber')+bar('Line ('+p.nln+')',p.line,mx,'green')+'</div>'; }
-        return '<div class="phaseblk">'+hd+bar(m.n+' flights',m.t,emax,'cyan')+'</div>';
+    if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){ var p=phByName[m.name], segs, val;
+        if(p && p.clearDate){
+          var trw=Math.round((p.training/emax)*100), lnw=Math.round((p.line/emax)*100);
+          segs='<div class="bf amber" style="width:'+trw+'%"></div><div class="bf green" style="width:'+lnw+'%"></div>';
+          val=fmtHM(m.t)+' <span style="color:var(--amber)">'+fmtHM(p.training)+'</span>/<span style="color:var(--green)">'+fmtHM(p.line)+'</span>';
+        } else {
+          segs='<div class="bf cyan" style="width:'+Math.round((m.t/emax)*100)+'%"></div>';
+          val=fmtHM(m.t);
+        }
+        return '<div class="bar"><div class="bl">'+esc(m.name)+'</div><div class="bt estack">'+segs+'</div><div class="bv">'+val+'</div></div>';
       }).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
 
     // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
