@@ -312,14 +312,13 @@
         <option value="lmonth">Last month</option>
         <option value="cyear">Current year</option>
         <option value="lyear">Last year</option>
-        <option value="d90">Last 90 days</option>
-        <option value="m12">Last 12 months</option>
         <option value="range">Specific range...</option>
       </select>
       <div class="frow c2" id="dashRangeRow" style="display:none; margin-bottom:10px">
         <div class="fgroup"><label>From</label><input type="date" class="fld" id="dashFrom"></div>
         <div class="fgroup"><label>To</label><input type="date" class="fld" id="dashTo"></div>
       </div>
+      <select class="fld" id="dashEmpFilter" style="margin-bottom:10px"><option value="all">All employers</option></select>
       <div class="fhint" id="dashRangeLbl" style="margin:-2px 2px 8px"></div>
       <div class="gt" id="dashGrand"></div>
       <div class="cluster" style="margin-top:8px">
@@ -823,7 +822,7 @@
 
   /* ---------- DASHBOARD ---------- */
   var dashScope='all';
-  var dashPeriod='all', dashFrom='', dashTo='';
+  var dashPeriod='all', dashFrom='', dashTo='', dashEmp='all';
   function pad2(n){ return (n<10?'0':'')+n; }
   function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function monthRange(y,m){ return {from:dstr(new Date(y,m,1)), to:dstr(new Date(y,m+1,0))}; }
@@ -834,11 +833,20 @@
       case 'lmonth': return monthRange(m===0?y-1:y, m===0?11:m-1);
       case 'cyear': return {from:y+'-01-01', to:y+'-12-31'};
       case 'lyear': return {from:(y-1)+'-01-01', to:(y-1)+'-12-31'};
-      case 'd90': d=new Date(now); d.setDate(d.getDate()-89); return {from:dstr(d), to:dstr(now)};
-      case 'm12': d=new Date(now); d.setFullYear(d.getFullYear()-1); d.setDate(d.getDate()+1); return {from:dstr(d), to:dstr(now)};
       case 'range': return {from:dashFrom||null, to:dashTo||null};
       default: return {from:null, to:null};
     }
+  }
+  function fillDashEmp(){
+    var sel=$('#dashEmpFilter'); if(!sel) return;
+    var names=(S.employers||[]).map(function(e){return e.name||'';}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
+    var hasUn=S.flights.some(function(f){ return !employerOf(f.fno); });
+    var cur=dashEmp;
+    sel.innerHTML='<option value="all">All employers</option>'
+      +names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')
+      +(hasUn?'<option value="__UNASSIGNED__">Unassigned</option>':'');
+    sel.value=cur;
+    if(sel.value!==cur){ dashEmp='all'; sel.value='all'; }
   }
   function bar(label,val,max,color,isCount,dispOverride){ var pct=max>0?Math.round((val/max)*100):0; if(pct>100)pct=100;
     var disp=dispOverride!=null?dispOverride:(isCount?String(val||0):fmtHM(val));
@@ -850,7 +858,11 @@
     var hasR=!!(r.from||r.to);
     var fl=hasR?S.flights.filter(function(f){return inR(f.date);}):S.flights;
     var sm=hasR?S.sim.filter(function(s){return inR(s.date);}):S.sim;
-    $('#dashRangeLbl').textContent = hasR ? ('Showing  '+(r.from||'\u2026')+'  \u2013  '+(r.to||'\u2026')) : 'All time \u00b7 entire logbook';
+    fillDashEmp();
+    if(dashEmp!=='all'){ fl=fl.filter(function(f){ var e=employerOf(f.fno); return dashEmp==='__UNASSIGNED__'?!e:e===dashEmp; }); sm=[]; }
+    var rlbl = hasR ? ('Showing  '+(r.from||'\u2026')+'  \u2013  '+(r.to||'\u2026')) : 'All time \u00b7 entire logbook';
+    if(dashEmp!=='all') rlbl += '  \u00b7  '+(dashEmp==='__UNASSIGNED__'?'Unassigned':dashEmp);
+    $('#dashRangeLbl').textContent = rlbl;
     var t=totals(fl);
     var simMin=sm.reduce(function(a,s){return a+(s.total||0);},0);
     $('#dashGrand').innerHTML =
@@ -1613,6 +1625,7 @@
   $('#goFleet').addEventListener('click',function(){ go('fleet'); });
   $('#fleetBack').addEventListener('click',function(){ go('more'); });
   $('#dashPeriod').addEventListener('change',function(){ dashPeriod=this.value; $('#dashRangeRow').style.display=(dashPeriod==='range')?'':'none'; renderDash(); });
+  $('#dashEmpFilter').addEventListener('change',function(){ dashEmp=this.value; renderDash(); });
   $('#dashFrom').addEventListener('change',function(){ dashFrom=this.value; renderDash(); });
   $('#dashTo').addEventListener('change',function(){ dashTo=this.value; renderDash(); });
 
