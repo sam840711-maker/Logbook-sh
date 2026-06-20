@@ -737,6 +737,7 @@
     if(h>23||m>59) return null; return h*60+m;
   }
   function num(v){ var n=parseInt(String(v==null?'':v).replace(/\D/g,''),10); return isNaN(n)?0:n; }
+  function debounce(fn,ms){ var t; return function(){ var a=arguments,c=this; clearTimeout(t); t=setTimeout(function(){ fn.apply(c,a); }, ms||160); }; }
   function today(){ var d=new Date(); return d.toISOString().slice(0,10); }
   function daysBetween(a,b){ return Math.round((a-b)/86400000); }
 
@@ -827,7 +828,7 @@
   function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function monthRange(y,m){ return {from:dstr(new Date(y,m,1)), to:dstr(new Date(y,m+1,0))}; }
   function periodRange(){
-    var now=new Date(), y=now.getFullYear(), m=now.getMonth(), d;
+    var now=new Date(), y=now.getFullYear(), m=now.getMonth();
     switch(dashPeriod){
       case 'cmonth': return monthRange(y,m);
       case 'lmonth': return monthRange(m===0?y-1:y, m===0?11:m-1);
@@ -861,7 +862,7 @@
     fillDashEmp();
     if(dashEmp!=='all'){ fl=fl.filter(function(f){ var e=employerOf(f.fno); return dashEmp==='__UNASSIGNED__'?!e:e===dashEmp; }); sm=[]; }
     var rlbl = hasR ? ('Showing  '+(r.from||'\u2026')+'  \u2013  '+(r.to||'\u2026')) : 'All time \u00b7 entire logbook';
-    if(dashEmp!=='all') rlbl += '  \u00b7  '+(dashEmp==='__UNASSIGNED__'?'Unassigned':dashEmp);
+    if(dashEmp!=='all') rlbl += '  \u00b7  '+(dashEmp==='__UNASSIGNED__'?'Unassigned':dashEmp)+(S.sim.length?'  \u00b7  sim excluded':'');
     $('#dashRangeLbl').textContent = rlbl;
     var t=totals(fl);
     var simMin=sm.reduce(function(a,s){return a+(s.total||0);},0);
@@ -906,7 +907,7 @@
     var emax=Math.max.apply(null,emps.map(function(m){return m.t;}).concat([1]));
     if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){ var p=phByName[m.name], segs, val;
         if(p && p.clearDate){
-          var trw=Math.round((p.training/emax)*100), lnw=Math.round((p.line/emax)*100);
+          var totw=Math.round((m.t/emax)*100), trw=Math.round((p.training/emax)*100); if(trw>totw)trw=totw; var lnw=totw-trw;
           segs='<div class="bf amber" style="width:'+trw+'%"></div><div class="bf green" style="width:'+lnw+'%"></div>';
           val=fmtHM(m.t)+' <span style="color:var(--amber)">'+fmtHM(p.training)+'</span>/<span style="color:var(--green)">'+fmtHM(p.line)+'</span>';
         } else {
@@ -1033,9 +1034,10 @@
     var y=$('#logYear'); if(y) y.addEventListener('change',function(){ logFilter.year=this.value; renderLog(); });
     var mo=$('#logMonth'); if(mo) mo.addEventListener('change',function(){ logFilter.month=this.value; renderLog(); });
     var em=$('#logEmp'); if(em) em.addEventListener('change',function(){ logFilter.emp=this.value; renderLog(); });
-    var rg=$('#logReg'); if(rg) rg.addEventListener('input',function(){ logFilter.reg=this.value.trim().toUpperCase(); renderLog(); });
-    var ap=$('#logApt'); if(ap) ap.addEventListener('input',function(){ logFilter.apt=this.value.trim().toUpperCase(); renderLog(); });
-    var q=$('#logQ'); if(q) q.addEventListener('input',function(){ logFilter.q=this.value.trim(); renderLog(); });
+    var rlD=debounce(renderLog,160);
+    var rg=$('#logReg'); if(rg) rg.addEventListener('input',function(){ logFilter.reg=this.value.trim().toUpperCase(); rlD(); });
+    var ap=$('#logApt'); if(ap) ap.addEventListener('input',function(){ logFilter.apt=this.value.trim().toUpperCase(); rlD(); });
+    var q=$('#logQ'); if(q) q.addEventListener('input',function(){ logFilter.q=this.value.trim(); rlD(); });
     var al=$('#logAL'); if(al) al.addEventListener('click',function(){ logFilter.auto=!logFilter.auto; al.classList.toggle('on',logFilter.auto); renderLog(); });
     var clr=$('#logClr'); if(clr) clr.addEventListener('click',function(){
       logFilter={year:'',month:'',emp:'',reg:'',apt:'',q:'',auto:false};
@@ -1117,7 +1119,7 @@
   function initSimFilter(){
     var y=$('#simYear'); if(y) y.addEventListener('change',function(){ simFilter.year=this.value; renderSim(); });
     var mo=$('#simMonth'); if(mo) mo.addEventListener('change',function(){ simFilter.month=this.value; renderSim(); });
-    var q=$('#simQ'); if(q) q.addEventListener('input',function(){ simFilter.q=this.value.trim(); renderSim(); });
+    var q=$('#simQ'); if(q) q.addEventListener('input',debounce(function(){ simFilter.q=$('#simQ').value.trim(); renderSim(); },160));
     var clr=$('#simClr'); if(clr) clr.addEventListener('click',function(){
       simFilter={year:'',month:'',q:''};
       if(y) y.value=''; if(mo) mo.value=''; if(q) q.value='';
@@ -1857,6 +1859,7 @@
 
   /* ---------- boot ---------- */
   function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(seedEmployers).then(function(){ go('dash'); maybeAutoSnapshot().then(refreshSnapCount); }); }
+  window.addEventListener('unhandledrejection',function(ev){ try{ console.error('unhandled',ev.reason); toast('Action failed \u2014 please try again'); }catch(e){} });
   if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
