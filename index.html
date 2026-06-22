@@ -334,7 +334,7 @@
         <div class="total mono" id="dashTotal">0:00</div>
         <div class="sub"><b id="dashFlights">0</b> flights · <b id="dashLdg">0</b> landings · avg <b id="dashAvg">0:00</b>/leg</div>
       </div>
-      <div class="section-head" id="dashPlannedHd"><h2>Planned flights</h2></div>
+      <div class="section-head" id="dashPlannedHd"><h2>Monthly hours</h2></div>
       <div class="bars" id="dashPlanned"></div>
       <div class="section-head"><h2>Function</h2></div>
       <div class="bars" id="dashFunc"></div>
@@ -934,18 +934,20 @@
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
-    var plAll=plannedF(S.flights), pdEl=$('#dashPlanned'), pdHd=$('#dashPlannedHd');
+    var pdEl=$('#dashPlanned'), pdHd=$('#dashPlannedHd');
     if(pdEl){
-      if(!plAll.length){ pdEl.style.display='none'; if(pdHd) pdHd.style.display='none'; }
-      else {
-        pdEl.style.display=''; if(pdHd) pdHd.style.display='';
-        var nowD=new Date(); var pmAgg={};
-        plAll.forEach(function(f){ var k=(f.date||'').slice(0,7); if(!k) return; pmAgg[k]=pmAgg[k]||{t:0,n:0}; pmAgg[k].t+=(f.total||0); pmAgg[k].n++; });
-        var mlist=[-1,0,1].map(function(o){ var d=new Date(nowD.getFullYear(), nowD.getMonth()+o, 1);
-          return { key:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2), lbl:(o===0?'This':o<0?'Last':'Next')+" \u00b7 "+monName(('0'+(d.getMonth()+1)).slice(-2)) }; });
-        var pmx=Math.max.apply(null, mlist.map(function(m){return (pmAgg[m.key]||{t:0}).t;}).concat([1]));
-        pdEl.innerHTML=mlist.map(function(m){ var a=pmAgg[m.key]||{t:0,n:0}; return bar(m.lbl, a.t, pmx, 'amber', false, fmtHM(a.t)+(a.n?'  ('+a.n+')':'')); }).join('');
-      }
+      pdEl.style.display=''; if(pdHd) pdHd.style.display='';
+      var nowD=new Date(); var byM={};
+      S.flights.forEach(function(f){ var k=(f.date||'').slice(0,7); if(!k) return; byM[k]=byM[k]||{act:0,pl:0}; if(f.status==='planned') byM[k].pl+=(f.total||0); else byM[k].act+=(f.total||0); });
+      var mlist=[-1,0,1].map(function(o){ var d=new Date(nowD.getFullYear(), nowD.getMonth()+o, 1);
+        return { key:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2), lbl:(o===0?'This':o<0?'Last':'Next')+" \u00b7 "+monName(('0'+(d.getMonth()+1)).slice(-2)) }; });
+      var pmx=Math.max.apply(null, mlist.map(function(m){ var a=byM[m.key]||{act:0,pl:0}; return a.act+a.pl; }).concat([1]));
+      pdEl.innerHTML=mlist.map(function(m){ var a=byM[m.key]||{act:0,pl:0}; var tot=a.act+a.pl;
+        var actw=Math.round(a.act/pmx*100), totw=Math.round(tot/pmx*100); if(actw>totw)actw=totw; var plw=totw-actw;
+        var segs='<div class="bf cyan" style="width:'+actw+'%"></div><div class="bf amber" style="width:'+plw+'%"></div>';
+        var val=(a.act>0&&a.pl>0)? (fmtHM(tot)+' <span style="color:var(--cyan)">'+fmtHM(a.act)+'</span>+<span style="color:var(--amber)">'+fmtHM(a.pl)+'</span>') : fmtHM(tot);
+        return '<div class="bar"><div class="bl">'+m.lbl+'</div><div class="bt estack">'+segs+'</div><div class="bv">'+val+'</div></div>';
+      }).join('')+'<div class="fhint" style="padding:2px 2px 0"><span style="color:var(--cyan)">\u25cf flown</span>  <span style="color:var(--amber)">\u25cf planned</span></div>';
     }
 
     var phByName={}; empPhaseStats(fl).forEach(function(p){ phByName[p.name]=p; });
