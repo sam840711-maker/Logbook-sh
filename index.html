@@ -308,11 +308,6 @@
     <!-- DASHBOARD -->
     <section class="view active" id="view-dash">
       <p class="eyebrow">My total time</p>
-      <div class="seg" id="dashSeg">
-        <button data-scope="all" class="on">All</button>
-        <button data-scope="ac">Aircraft</button>
-        <button data-scope="sim">Simulator</button>
-      </div>
       <select class="fld" id="dashPeriod" style="margin-bottom:10px">
         <option value="all">All time</option>
         <option value="cmonth">Current month</option>
@@ -851,7 +846,6 @@
   }
 
   /* ---------- DASHBOARD ---------- */
-  var dashScope='all';
   var dashPeriod='all', dashFrom='', dashTo='', dashEmp='all', dashInclPlanned=false;
   function pad2(n){ return (n<10?'0':'')+n; }
   function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
@@ -904,12 +898,11 @@
       grandCell('ac','Aircraft', fl.length+' flights', fmtHM(t.total)) +
       grandCell('sim','Sim', sm.length+' sessions', fmtHM(simMin)) +
       grandCell('tot','Total', (fl.length+sm.length)+' records', fmtHM(t.total+simMin));
-    var isSim=dashScope==='sim';
-    $('#dashClabel').textContent=(dashScope==='ac'?'Aircraft':dashScope==='sim'?'Simulator':'Total')+' · BLOCK';
-    $('#dashTotal').textContent=fmtHM(isSim?simMin:t.total);
-    $('#dashFlights').textContent=isSim?sm.length:t.n;
+    $('#dashClabel').textContent='Aircraft · BLOCK';
+    $('#dashTotal').textContent=fmtHM(t.total);
+    $('#dashFlights').textContent=t.n;
     $('#dashLdg').textContent=t.ldg;
-    $('#dashAvg').textContent=fmtHM(isSim?(sm.length?Math.round(simMin/sm.length):0):(t.n?Math.round(t.total/t.n):0));
+    $('#dashAvg').textContent=fmtHM(t.n?Math.round(t.total/t.n):0);
     var lg=loggedF(S.flights); var allMin=totals(lg).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
     $('#hdrTail').textContent=fmtHM(allMin)+' · '+(lg.length+S.sim.length)+'R';
 
@@ -919,15 +912,14 @@
     var cmax=Math.max(t.night,dayMin,t.actual,t.xc,t.mp,1);
     $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,''],['MULTI-PILOT',t.mp,'violet']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
     // currencies: Aircraft / Simulator separated; All shows "aircraft / sim"
-    var ccA=curCounts(fl), ccS=curCounts(sm); var sc=dashScope;
-    $('#dashCurrLbl').textContent = sc==='sim'?'Simulator':sc==='ac'?'Aircraft':'Aircraft / Sim';
+    var ccA=curCounts(fl), ccS=curCounts(sm);
+    $('#dashCurrLbl').textContent='Aircraft / Sim';
     var cKeys=[['TO-TOTAL',['toDay','toNight']],['LDG-TOTAL',['ldgDay','ldgNight']],['TO-DAY','toDay'],['LDG-DAY','ldgDay'],['TO-NIGHT','toNight'],['LDG-NIGHT','ldgNight'],['AUTOLAND','auto']];
     function ckv(cc,key){ if(Array.isArray(key)){ return key.reduce(function(n,kk){return n+(cc[kk]||0);},0); } return cc[key]||0; }
-    var cVals=cKeys.map(function(k){ var a=ckv(ccA,k[1]), s=ckv(ccS,k[1]); return sc==='sim'?s:sc==='ac'?a:(a+s); });
+    var cVals=cKeys.map(function(k){ return ckv(ccA,k[1])+ckv(ccS,k[1]); });
     var crmax=Math.max.apply(null,cVals.concat([1]));
     $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ckv(ccA,k[1]), s=ckv(ccS,k[1]);
-      var disp = sc==='all' ? ((a+s)+' ('+a+'/'+s+')') : undefined;
-      return bar(k[0],cVals[i],crmax,'green',true,disp); }).join('');
+      return bar(k[0],cVals[i],crmax,'green',true,(a+s)+' ('+a+'/'+s+')'); }).join('');
     // cluster landings reflect scope (All = aircraft + sim)
     $('#dashLdg').textContent = sc==='sim'? ccS.ldg : sc==='ac'? ccA.ldg : (ccA.ldg+ccS.ldg);
     var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
@@ -1718,7 +1710,6 @@
   /* ---------- row click delegation ---------- */
   document.addEventListener('click',function(e){
     var st=e.target.closest('[data-step]'); if(st){ var se=$('#'+st.getAttribute('data-for')); if(se){ var n=(num(se.value)||0)+parseInt(st.getAttribute('data-step'),10); if(n<0)n=0; se.value=n>0?String(n):''; } return; }
-    var sb=e.target.closest('[data-scope]'); if(sb){ dashScope=sb.getAttribute('data-scope'); $$('#dashSeg button').forEach(function(b){ b.classList.toggle('on', b===sb); }); renderDash(); return; }
     var r=e.target.closest('[data-fid]'); if(r){ var fid=r.getAttribute('data-fid'); if(selMode){ toggleSel(fid); return; } var f=S.flights.filter(function(x){return x.id===fid;})[0]; if(f) openFlight(f); return; }
     var sr=e.target.closest('[data-sid]'); if(sr){ var s=S.sim.filter(function(x){return x.id===sr.getAttribute('data-sid');})[0]; if(s) openSim(s); return; }
     var ar=e.target.closest('[data-aid]'); if(ar){ var aid=ar.getAttribute('data-aid'); if(acSelMode){ toggleAcSel(aid); return; } var a=S.aircraft.filter(function(x){return x.id===aid;})[0]; if(a) openAc(a); return; }
