@@ -770,8 +770,9 @@
     var rq=indexedDB.open(DBNAME,VER);
     rq.onupgradeneeded=function(e){ var db=e.target.result;
       STORES.forEach(function(s){ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); }); };
-    rq.onsuccess=function(e){ DB=e.target.result; res(DB); };
+    rq.onsuccess=function(e){ DB=e.target.result; try{ DB.onversionchange=function(){ try{DB.close();}catch(_){} }; }catch(_){} res(DB); };
     rq.onerror=function(e){ rej(e.target.error); };
+    rq.onblocked=function(){ rej(new Error('db blocked by another tab')); };
   });}
   function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
   function getAll(store){ return new Promise(function(res,rej){ var r=tx(store,'readonly').getAll(); r.onsuccess=function(){res(r.result||[]);}; r.onerror=function(){rej(r.error);}; }); }
@@ -1966,9 +1967,18 @@
   });
 
   /* ---------- boot ---------- */
-  function boot(){ initLogFilter(); initSimFilter(); return openDB().then(reload).then(seedEmployers).then(function(){ go('dash'); maybeAutoSnapshot().then(refreshSnapCount); }); }
+  function boot(){ initLogFilter(); initSimFilter();
+    return openDB().then(reload).then(function(){
+      // DB load succeeded past here — downstream hiccups must NOT report as a DB failure
+      return seedEmployers().catch(function(e){ console.error('seed',e); });
+    }).then(function(){
+      try{ go('dash'); }catch(e){ console.error('render',e); }
+      try{ maybeAutoSnapshot().then(refreshSnapCount).catch(function(){}); }catch(e){ console.error('snap',e); }
+    });
+  }
   window.addEventListener('unhandledrejection',function(ev){ try{ console.error('unhandled',ev.reason); toast('Action failed \u2014 please try again'); }catch(e){} });
-  if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error(err); toast('Database init failed'); }); }
+  if(typeof indexedDB!=='undefined'){ boot().catch(function(err){ console.error('boot attempt 1 failed',err);
+    setTimeout(function(){ boot().catch(function(e2){ console.error('boot attempt 2 failed',e2); toast('Couldn\u2019t open the database \u2014 close other open tabs of this app, then reopen'); }); }, 700); }); }
   window.__LOGBOOK__={parseHM:parseHM,fmtHM:fmtHM,parseClock:parseClock,totals:totals,go:go,boot:boot,importPilotlog:importPilotlog,decodeCsv:decodeCsv,localClock:localClock,S:S,clearStore:clearStore,reload:reload,put:put};
 
   if('serviceWorker' in navigator){
