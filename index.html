@@ -1552,9 +1552,17 @@
       status: (($('#f_flown')&&$('#f_flown').checked)?'actual':(prev.status||'actual')),
       schedOff:(prev.schedOff!=null?prev.schedOff:null), schedOn:(prev.schedOn!=null?prev.schedOn:null) };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
+    var matchedPlanned=false;
+    if(!editFid){ // a newly logged flight (photo import or manual) folds into a matching PLANNED roster entry, if any
+      var dn=(obj.fno||'').replace(/\D/g,''); var dd=obj.date;
+      var cand=S.flights.filter(function(x){ return x.status==='planned' && (x.date||'')===dd; });
+      var pm=(dn?cand.filter(function(x){ return (x.fno||'').replace(/\D/g,'')===dn; })[0]:null)
+            || (obj.dep?cand.filter(function(x){ return x.dep===obj.dep && x.arr===obj.arr; })[0]:null);
+      if(pm){ obj.id=pm.id; obj._c=pm._c; matchedPlanned=true; }
+    }
     put('flights',obj).then(reload).then(function(){
-      if(!editFid && pasteAll.length){ pasteIdx++; toast('Saved '+pasteIdx+' / '+pasteAll.length); openReview(); }
-      else { closeM(); go('log'); toast(editFid?'Updated':'Flight saved'); }
+      if(!editFid && pasteAll.length){ pasteIdx++; toast('Saved '+pasteIdx+' / '+pasteAll.length+(matchedPlanned?' (planned filled)':'')); openReview(); }
+      else { closeM(); go('log'); toast(editFid?'Updated':(matchedPlanned?'Logged \u2014 planned filled':'Flight saved')); }
     });
   });
   $('#fDel').addEventListener('click',function(){ if(!editFid) return; if(!confirm('Delete this flight?')) return;
