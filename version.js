@@ -4,4 +4,4 @@
    to change. Loaded in the page via <script src="version.js"> (sets
    window.APP_VERSION) and in the service worker via importScripts('version.js')
    (sets self.APP_VERSION). */
-var APP_VERSION = 'v0.5ac';
+var APP_VERSION = 'v0.5ae';

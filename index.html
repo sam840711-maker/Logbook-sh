@@ -263,13 +263,20 @@
   #dashCurr .bar .bv{padding-left:8px}
   #dashEmp .bar{grid-template-columns:104px 1fr auto}
   #dashEmp .bar .bv{padding-left:8px}
+  #dashPlanned .bar{grid-template-columns:104px 1fr auto}
+  #dashPlanned .bar .bv{padding-left:8px}
   .bar .bt.estack{display:flex}
   .bar .bt.estack .bf{border-radius:0}
+  .inclrow{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-dim); margin:0 2px 12px; -webkit-user-select:none; user-select:none}
+  .inclrow input{width:16px; height:16px; accent-color:var(--cyan)}
   @media (prefers-reduced-motion:reduce){.bar .bf{transition:none}}
   .fcard{display:grid; grid-template-columns:48px 1fr auto; gap:10px; align-items:center; background:var(--panel);
     border:1px solid var(--line-soft); border-left:3px solid var(--cyan-dim); border-radius:10px; padding:10px 12px; margin-bottom:7px; cursor:pointer}
   .fcard:active{background:#18242c}
   .fcard.sim{border-left-color:#7d5bb0}
+  .fcard.planned{border-left-color:var(--amber); border-left-style:dashed; opacity:.82}
+  .fcard.planned .du{color:var(--ink-faint)}
+  .plbadge{display:inline-block; font-size:9px; font-weight:700; letter-spacing:.04em; color:var(--amber); border:1px solid var(--amber); border-radius:4px; padding:0 4px; margin-left:6px; vertical-align:1px}
   .fcard .d{text-align:center; line-height:1.05}
   .fcard .d .dd{font-family:var(--mono); font-size:18px; color:var(--white)}
   .fcard .d .dm{font-size:9px; color:var(--ink-faint); text-transform:uppercase}
@@ -319,6 +326,7 @@
         <div class="fgroup"><label>To</label><input type="date" class="fld" id="dashTo"></div>
       </div>
       <select class="fld" id="dashEmpFilter" style="margin-bottom:10px"><option value="all">All employers</option></select>
+      <label class="inclrow"><input type="checkbox" id="dashInclPlanned"> Include planned (roster) in totals</label>
       <div class="fhint" id="dashRangeLbl" style="margin:-2px 2px 8px"></div>
       <div class="gt" id="dashGrand"></div>
       <div class="cluster" style="margin-top:8px">
@@ -326,6 +334,8 @@
         <div class="total mono" id="dashTotal">0:00</div>
         <div class="sub"><b id="dashFlights">0</b> flights · <b id="dashLdg">0</b> landings · avg <b id="dashAvg">0:00</b>/leg</div>
       </div>
+      <div class="section-head" id="dashPlannedHd"><h2>Planned flights</h2></div>
+      <div class="bars" id="dashPlanned"></div>
       <div class="section-head"><h2>Function</h2></div>
       <div class="bars" id="dashFunc"></div>
       <div class="section-head"><h2>Flight condition</h2></div>
@@ -428,6 +438,10 @@
         <button class="btn ghost sm" data-pdf="JCAB">JCAB</button>
       </div>
       <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. GCAA adds a licence-total reconciliation note. JCAB uses the Japan logbook column layout (incl. operational-time IFR and FSTD-session columns).</div>
+
+      <div class="section-head"><h2>Roster import</h2></div>
+      <button class="btn ghost sm" id="rosterBtn" style="width:100%">Import roster (planned flights)</button>
+      <div class="fhint" style="margin-top:10px">Paste the monthly roster JSON to pre-load planned flights (operating legs only; deadhead and off/standby excluded). After each flight, open it and tick “Mark as flown” to record actual times. Planned flights are excluded from totals, currency and PDF until flown.</div>
 
       <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
@@ -547,6 +561,7 @@
     <div class="fgroup"><label>Approaches (type · CAT · RWY)</label><input class="fld" id="f_appr" placeholder="e.g. ILS CAT3B 34L; RNP 30R"></div>
 
     <div class="fdiv"></div>
+    <label class="chk" id="f_flownRow" style="display:none; margin-bottom:14px; color:var(--amber)"><input type="checkbox" id="f_flown"><span>Mark as flown (move out of planned)</span></label>
     <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="f_xc" checked><span>Cross-country</span></label>
     <div class="fgroup"><label>Remarks</label><textarea class="fld" id="f_rem" placeholder="Training notes, delays, abnormals…"></textarea></div>
   </div>
@@ -641,6 +656,16 @@
     <div class="fhint" id="pasteErr" style="color:#ff8a80"></div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="pasteParse">Parse &amp; review</button></div>
+</div></div>
+
+<div class="modal" id="m-roster"><div class="scrim" data-close></div><div class="sheet">
+  <div class="sheet-head"><h3>Import roster</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0">Paste the monthly roster JSON. Operating legs are added as <b>planned</b> flights (scheduled times, in UTC). Re-importing the same month updates planned legs without duplicating; legs already flown are left untouched.</p>
+    <div class="fgroup"><label>Roster JSON</label><textarea class="fld" id="rosterJson" style="min-height:180px; font-family:var(--mono); font-size:12px" placeholder='{ "planned":true, "month":"2026-07", "flights":[ {"date":"2026-07-03","fno":"7C685","dep":"RKJB","arr":"RKTN","off":"0250","on":"0425","reg":"HL8300","role":"FO","acType":"B737-800"} ] }'></textarea></div>
+    <div class="fhint" id="rosterErr" style="color:#ff8a80"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="rosterParse">Add planned</button></div>
 </div></div>
 
 <div class="modal" id="m-actype"><div class="scrim" data-close></div><div class="sheet">
@@ -766,6 +791,9 @@
   function employerOf(fno){ fno=(fno||'').trim().toUpperCase(); if(!fno) return null; var best=null, bl=-1;
     (S.employers||[]).forEach(function(e){ (e.prefixes||[]).forEach(function(p){ p=(p||'').trim().toUpperCase(); if(p && fno.indexOf(p)===0 && p.length>bl){ best=e.name; bl=p.length; } }); });
     return best; }
+  // Planned (roster) vs actual flights. status==='planned' until flown.
+  function loggedF(list){ return (list||[]).filter(function(f){ return f.status!=='planned'; }); }
+  function plannedF(list){ return (list||[]).filter(function(f){ return f.status==='planned'; }); }
   // Seed default employers once (t'way, Jeju Air) so existing flights classify by prefix immediately.
   function seedEmployers(){
     try{ if(localStorage.getItem('logbook_emp_seeded')) return Promise.resolve(); }catch(e){}
@@ -823,7 +851,7 @@
 
   /* ---------- DASHBOARD ---------- */
   var dashScope='all';
-  var dashPeriod='all', dashFrom='', dashTo='', dashEmp='all';
+  var dashPeriod='all', dashFrom='', dashTo='', dashEmp='all', dashInclPlanned=false;
   function pad2(n){ return (n<10?'0':'')+n; }
   function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function monthRange(y,m){ return {from:dstr(new Date(y,m,1)), to:dstr(new Date(y,m+1,0))}; }
@@ -857,12 +885,17 @@
     var r=periodRange();
     var inR=function(d){ if(!d) return false; if(r.from && d<r.from) return false; if(r.to && d>r.to) return false; return true; };
     var hasR=!!(r.from||r.to);
-    var fl=hasR?S.flights.filter(function(f){return inR(f.date);}):S.flights;
+    var empPred=function(f){ if(dashEmp==='all') return true; var e=employerOf(f.fno); return dashEmp==='__UNASSIGNED__'?!e:e===dashEmp; };
+    var base=dashInclPlanned?S.flights:loggedF(S.flights);
+    var fl=(hasR?base.filter(function(f){return inR(f.date);}):base).filter(empPred);
     var sm=hasR?S.sim.filter(function(s){return inR(s.date);}):S.sim;
+    if(dashEmp!=='all') sm=[];
     fillDashEmp();
-    if(dashEmp!=='all'){ fl=fl.filter(function(f){ var e=employerOf(f.fno); return dashEmp==='__UNASSIGNED__'?!e:e===dashEmp; }); sm=[]; }
+    var plP=plannedF(S.flights).filter(function(f){ return (!hasR||inR(f.date)) && empPred(f); });
+    var plSum=plP.reduce(function(a,f){return a+(f.total||0);},0);
     var rlbl = hasR ? ('Showing  '+(r.from||'\u2026')+'  \u2013  '+(r.to||'\u2026')) : 'All time \u00b7 entire logbook';
     if(dashEmp!=='all') rlbl += '  \u00b7  '+(dashEmp==='__UNASSIGNED__'?'Unassigned':dashEmp)+(S.sim.length?'  \u00b7  sim excluded':'');
+    if(plP.length) rlbl += '  \u00b7  planned '+fmtHM(plSum)+' ('+plP.length+')'+(dashInclPlanned?' included':'');
     $('#dashRangeLbl').textContent = rlbl;
     var t=totals(fl);
     var simMin=sm.reduce(function(a,s){return a+(s.total||0);},0);
@@ -876,8 +909,8 @@
     $('#dashFlights').textContent=isSim?sm.length:t.n;
     $('#dashLdg').textContent=t.ldg;
     $('#dashAvg').textContent=fmtHM(isSim?(sm.length?Math.round(simMin/sm.length):0):(t.n?Math.round(t.total/t.n):0));
-    var allMin=totals(S.flights).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
-    $('#hdrTail').textContent=fmtHM(allMin)+' · '+(S.flights.length+S.sim.length)+'R';
+    var lg=loggedF(S.flights); var allMin=totals(lg).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
+    $('#hdrTail').textContent=fmtHM(allMin)+' · '+(lg.length+S.sim.length)+'R';
 
     var fmax=Math.max(t.pic+t.picus,t.pic,t.picus,t.sic,t.dual,t.relief,1);
     $('#dashFunc').innerHTML=[['PIC + PICUS',t.pic+t.picus,'green'],['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
@@ -901,6 +934,20 @@
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
     $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
+    var plAll=plannedF(S.flights), pdEl=$('#dashPlanned'), pdHd=$('#dashPlannedHd');
+    if(pdEl){
+      if(!plAll.length){ pdEl.style.display='none'; if(pdHd) pdHd.style.display='none'; }
+      else {
+        pdEl.style.display=''; if(pdHd) pdHd.style.display='';
+        var nowD=new Date(); var pmAgg={};
+        plAll.forEach(function(f){ var k=(f.date||'').slice(0,7); if(!k) return; pmAgg[k]=pmAgg[k]||{t:0,n:0}; pmAgg[k].t+=(f.total||0); pmAgg[k].n++; });
+        var mlist=[-1,0,1].map(function(o){ var d=new Date(nowD.getFullYear(), nowD.getMonth()+o, 1);
+          return { key:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2), lbl:(o===0?'This':o<0?'Last':'Next')+" \u00b7 "+monName(('0'+(d.getMonth()+1)).slice(-2)) }; });
+        var pmx=Math.max.apply(null, mlist.map(function(m){return (pmAgg[m.key]||{t:0}).t;}).concat([1]));
+        pdEl.innerHTML=mlist.map(function(m){ var a=pmAgg[m.key]||{t:0,n:0}; return bar(m.lbl, a.t, pmx, 'amber', false, fmtHM(a.t)+(a.n?'  ('+a.n+')':'')); }).join('');
+      }
+    }
+
     var phByName={}; empPhaseStats(fl).forEach(function(p){ phByName[p.name]=p; });
     var be={}; fl.forEach(function(f){ var k=employerOf(f.fno)||'Unassigned'; be[k]=(be[k]||0)+(f.total||0); });
     var emps=Object.keys(be).map(function(k){return {name:k,t:be[k]};}).sort(function(a,b){return b.t-a.t;});
@@ -918,9 +965,9 @@
       }).join(''):'<div class="fhint" style="padding:4px 2px">No flight data</div>';
 
     // recency — aircraft + simulator landings, last 90 days (currency judged on the total)
-    var aL=recentOf(S.flights,90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
-    var aN=recentOf(S.flights,90,function(f){return f.nLdg||0;}), sN=recentOf(S.sim,90,function(s){return s.nLdg||0;}); var tN=aN.count+sN.count;
-    var aA=recentOf(S.flights,90,function(f){return f.auto||0;}), sA=recentOf(S.sim,90,function(s){return s.auto||0;}); var tA=aA.count+sA.count;
+    var aL=recentOf(loggedF(S.flights),90,function(f){return (f.dLdg||0)+(f.nLdg||0);}), sL=recentOf(S.sim,90,function(s){return (s.dLdg||0)+(s.nLdg||0);}); var tL=aL.count+sL.count;
+    var aN=recentOf(loggedF(S.flights),90,function(f){return f.nLdg||0;}), sN=recentOf(S.sim,90,function(s){return s.nLdg||0;}); var tN=aN.count+sN.count;
+    var aA=recentOf(loggedF(S.flights),90,function(f){return f.auto||0;}), sA=recentOf(S.sim,90,function(s){return s.auto||0;}); var tA=aA.count+sA.count;
     var rec=[];
     rec.push(recRow(tL>=3?'g':(tL>0?'a':'r'),'90-day landings', 'Aircraft '+aL.count+' \u00b7 Sim '+sL.count+' \u00b7 last 90 days \u00b7 min 3', tL, ''));
     rec.push(recRow(tN>=1?'g':'x','Night landings', 'Aircraft '+aN.count+' \u00b7 Sim '+sN.count+' \u00b7 last 90 days', tN, ''));
@@ -957,9 +1004,9 @@
   }
   function cardFlight(f){ var d=(f.date||'').split('-');
     var out=f.off!=null?clk2(f.off):'--:--', inn=f.on!=null?clk2(f.on):'--:--';
-    var cls='fcard'+(selMode?' picking':'')+(logSel[f.id]?' selon':'');
+    var cls='fcard'+(selMode?' picking':'')+(logSel[f.id]?' selon':'')+(f.status==='planned'?' planned':'');
     return '<div class="'+cls+'" data-fid="'+f.id+'"><div class="seldot">\u2713</div><div class="d"><div class="dd">'+esc(d[2]||'--')+'</div><div class="dm">'+esc(monName(d[1]))+" '"+esc((d[0]||'').slice(2))+'</div></div>'+
-      '<div class="mid"><div class="fn">'+esc(f.fno||'—')+'  '+esc(f.dep||'????')+' \u2192 '+esc(f.arr||'????')+'</div><div class="ac">'+esc(f.acType||'')+(f.reg?' \u00b7 '+esc(f.reg):'')+'</div></div>'+
+      '<div class="mid"><div class="fn">'+esc(f.fno||'—')+'  '+esc(f.dep||'????')+' \u2192 '+esc(f.arr||'????')+(f.status==='planned'?' <span class="plbadge">PLANNED</span>':'')+'</div><div class="ac">'+esc(f.acType||'')+(f.reg?' \u00b7 '+esc(f.reg):'')+'</div></div>'+
       '<div class="rt"><div class="rr">'+out+' \u2013 '+inn+'</div><div class="du">'+fmtHM(f.total)+'</div></div>'+flightSummary(f)+'</div>';
   }
 
@@ -1024,8 +1071,9 @@
       $('#logEmpty').innerHTML='<div class="empty" style="margin-top:12px"><b>Logbook is empty</b>Start with the + Flight button.</div>'; return; }
     var list=S.flights.filter(flightMatch);
     $('#logEmpty').innerHTML = list.length ? '' : '<div class="empty" style="margin-top:12px"><b>No matches</b>Adjust the filters above.</div>';
-    var t=totals(list);
-    $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n));
+    var t=totals(loggedF(list));
+    var pln=plannedF(list); var plMin=pln.reduce(function(a,f){return a+(f.total||0);},0);
+    $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n))+(pln.length?grandCell('sim','Planned',pln.length+' flights',fmtHM(plMin)):'');
     $('#logCount').textContent = filterActive() ? ('Showing '+list.length+' of '+S.flights.length) : '';
     var lfa=$('#logfActive'); if(lfa) lfa.textContent = filterActive()? '\u00b7 on' : '';
     $('#logList').innerHTML=list.map(cardFlight).join('');
@@ -1252,6 +1300,8 @@
   function openFlight(f){
     pasteAll=[]; pasteIdx=0;
     editFid=f?f.id:null; $('#fTitle').textContent=f?'Edit flight':'Add flight'; $('#fDel').style.display=f?'block':'none';
+    var pl=!!(f&&f.status==='planned'); var fr=$('#f_flownRow'); if(fr){ fr.style.display=pl?'':'none'; } if($('#f_flown')) $('#f_flown').checked=false;
+    if(pl) $('#fTitle').textContent='Planned flight';
     refreshAcDatalist(); fillFlight(f); openM('m-flight');
   }
   // ---- Import from photo: paste JSON -> per-leg review ----
@@ -1309,7 +1359,7 @@
     var leg=pasteAll[pasteIdx]; editFid=null; refreshAcDatalist(); fillFlight(leg);
     if(!leg.total && leg.off!=null && leg.on!=null){ $('#f_total')._auto=true; autoBlock(); }
     $('#fTitle').textContent='Review  '+(pasteIdx+1)+' / '+pasteAll.length;
-    $('#fDel').style.display='none'; openM('m-flight');
+    $('#fDel').style.display='none'; if($('#f_flownRow')) $('#f_flownRow').style.display='none'; if($('#f_flown')) $('#f_flown').checked=false; openM('m-flight');
   }
   if($('#fPhoto')) $('#fPhoto').addEventListener('click',function(){ closeM(); $('#pasteErr').textContent=''; openM('m-paste'); });
   if($('#pasteParse')) $('#pasteParse').addEventListener('click',function(){
@@ -1329,6 +1379,46 @@
         .then(reload).then(function(){ toast('Aircraft '+aReg+' added ('+t+')'); finish(); }); };
     if(aReg && !acByReg(aReg)){ if(aType) doReg(aType); else askAcType(aReg,doReg); }
     else { finish(); }
+  });
+  // ---- Roster import: bulk planned flights (operating legs only; deadhead excluded upstream) ----
+  if($('#rosterBtn')) $('#rosterBtn').addEventListener('click',function(){ $('#rosterErr').textContent=''; openM('m-roster'); });
+  if($('#rosterParse')) $('#rosterParse').addEventListener('click',function(){
+    var raw=$('#rosterJson').value.trim(); $('#rosterErr').textContent='';
+    if(!raw){ $('#rosterErr').textContent='Paste JSON first.'; return; }
+    var data; try{ data=JSON.parse(raw); }catch(e){ $('#rosterErr').textContent='Invalid JSON: '+e.message; return; }
+    var arr=Array.isArray(data)?data:(data.flights||data.legs||[]);
+    if(!arr.length){ $('#rosterErr').textContent='No flights[] found in JSON.'; return; }
+    var defType=data.acType||data.type||'B737-800';
+    var seenNew={}; arr.forEach(function(l){ var reg=String(l.reg||'').toUpperCase().trim(); if(reg && !acByReg(reg) && !seenNew[reg]) seenNew[reg]=(l.acType||l.type||defType); });
+    var regOps=Object.keys(seenNew).map(function(reg){ return put('aircraft',{ id:uid(), reg:reg, type:seenNew[reg], cls:'Multi-engine Jet (ME Jet)', engine:'Jet', multi:true, rem:'auto-added from roster' }); });
+    Promise.all(regOps).then(reload).then(function(){
+      var existing={}; S.flights.forEach(function(f){ existing[(f.date||'')+'|'+(f.fno||'').toUpperCase()]=f; });
+      var ops=[], added=0, updated=0, skipped=0;
+      arr.forEach(function(l){
+        var fno=String(l.fno||'').toUpperCase().trim(), date=String(l.date||'').trim();
+        if(!fno||!date){ skipped++; return; }
+        var ex=existing[date+'|'+fno];
+        if(ex && ex.status!=='planned'){ skipped++; return; }
+        var reg=String(l.reg||'').toUpperCase().trim(), a=acByReg(reg);
+        var off=parseClock(l.off!=null?String(l.off):''), on=parseClock(l.on!=null?String(l.on):'');
+        var total=l.block?parseDur(String(l.block)):(l.total?parseDur(String(l.total)):((off!=null&&on!=null)?((on-off+1440)%1440):0));
+        var role=String(l.role||'FO').toUpperCase(), pic=0, sic=0;
+        if(role==='CPT'||role==='CP'||role==='PIC') pic=total; else sic=total;
+        var obj={ id:(ex?ex.id:uid()), _c:(ex?ex._c:Date.now()),
+          date:date, fno:fno, reg:reg, acType:a?a.type:(l.acType||l.type||defType), acClass:a?a.cls:'Multi-engine Jet (ME Jet)',
+          dep:resolveApt(l.dep||l.from||''), arr:resolveApt(l.arr||l.to||''), off:off, on:on, total:total,
+          pic:pic, sic:sic, picus:0, relief:0, night:(l.night?parseDur(String(l.night)):0),
+          actual:0, simInst:0, ifr:0, dual:0, instr:0, mp:(a?(a.multi?total:0):total),
+          picName:(l.picName||l.captain||''), dTo:0, dLdg:0, nTo:0, nLdg:0, auto:0, appr:'', task:'',
+          acMulti:a?!!a.multi:true, xc:(l.xc!=null?!!l.xc:true), rule:'IFR', rem:(l.rem||''),
+          status:'planned', schedOff:off, schedOn:on };
+        ops.push(put('flights',obj)); if(ex) updated++; else added++;
+      });
+      Promise.all(ops).then(reload).then(function(){
+        closeM(); renderLog(); if($('#view-dash')&&$('#view-dash').classList.contains('active')) renderDash();
+        toast('Planned: '+added+' added'+(updated?', '+updated+' updated':'')+(skipped?', '+skipped+' skipped':''));
+      });
+    });
   });
   function clk(min){ var h=Math.floor(min/60),m=min%60; return (h<10?'0':'')+h+(m<10?'0':'')+m; }
   function mpType(){ var a=acByReg($('#f_reg').value); return a?!!a.multi:false; }
@@ -1456,7 +1546,9 @@
       picName:$('#f_picname').value.trim(),
       dTo:num($('#f_dto').value), dLdg:num($('#f_dldg').value), nTo:num($('#f_nto').value), nLdg:num($('#f_nldg').value),
       auto:num($('#f_auto').value), appr:$('#f_appr').value.trim(), task:(prev.task||''),
-      acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:(prev.rule||'IFR'), rem:$('#f_rem').value.trim() };
+      acMulti:a?!!a.multi:false, xc:$('#f_xc').checked, rule:(prev.rule||'IFR'), rem:$('#f_rem').value.trim(),
+      status: (($('#f_flown')&&$('#f_flown').checked)?'actual':(prev.status||'actual')),
+      schedOff:(prev.schedOff!=null?prev.schedOff:null), schedOn:(prev.schedOn!=null?prev.schedOn:null) };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
     put('flights',obj).then(reload).then(function(){
       if(!editFid && pasteAll.length){ pasteIdx++; toast('Saved '+pasteIdx+' / '+pasteAll.length); openReview(); }
@@ -1628,6 +1720,7 @@
   $('#fleetBack').addEventListener('click',function(){ go('more'); });
   $('#dashPeriod').addEventListener('change',function(){ dashPeriod=this.value; $('#dashRangeRow').style.display=(dashPeriod==='range')?'':'none'; renderDash(); });
   $('#dashEmpFilter').addEventListener('change',function(){ dashEmp=this.value; renderDash(); });
+  if($('#dashInclPlanned')) $('#dashInclPlanned').addEventListener('change',function(){ dashInclPlanned=this.checked; renderDash(); });
   $('#dashFrom').addEventListener('change',function(){ dashFrom=this.value; renderDash(); });
   $('#dashTo').addEventListener('change',function(){ dashTo=this.value; renderDash(); });
 
@@ -1649,10 +1742,10 @@
     }catch(err){ toast('Restore failed: invalid file'); } }; rd.readAsText(file); e.target.value='';
   });
   $('#expCsv').addEventListener('click',function(){
-    var head=['Date','FlightNo','Reg','Type','From','To','Out','In','Block','MP','PIC','SIC','PICUS','Relief','Night','IFR','Dual','Instr','DayTO','DayLDG','NightTO','NightLDG','Autoland','Approaches','Multi','XC','Rule','PICName','Remarks'];
+    var head=['Date','FlightNo','Reg','Type','From','To','Out','In','Block','MP','PIC','SIC','PICUS','Relief','Night','IFR','Dual','Instr','DayTO','DayLDG','NightTO','NightLDG','Autoland','Approaches','Multi','XC','Rule','Status','PICName','Remarks'];
     var rows=S.flights.slice().reverse().map(function(f){ return [f.date,f.fno,f.reg,f.acType,f.dep,f.arr,
       f.off!=null?clk(f.off):'',f.on!=null?clk(f.on):'',fmtHM(f.total),fmtHM(f.mp),fmtHM(f.pic),fmtHM(f.sic),fmtHM(f.picus),fmtHM(f.relief),fmtHM(f.night),fmtHM(f.ifr),fmtHM(f.dual),fmtHM(f.instr),
-      f.dTo||0,f.dLdg||0,f.nTo||0,f.nLdg||0,f.auto||0,f.appr||'',f.acMulti?'Y':'',f.xc?'Y':'',f.rule||'',f.picName||'',f.rem||''].map(csv).join(','); });
+      f.dTo||0,f.dLdg||0,f.nTo||0,f.nLdg||0,f.auto||0,f.appr||'',f.acMulti?'Y':'',f.xc?'Y':'',f.rule||'',(f.status==='planned'?'PLANNED':'actual'),f.picName||'',f.rem||''].map(csv).join(','); });
     download('logbook_'+today()+'.csv', head.join(',')+'\n'+rows.join('\n'), 'text/csv'); toast('CSV exported');
   });
   function csv(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
@@ -1741,7 +1834,7 @@
     $$('[data-pdf]').forEach(function(b){ b.addEventListener('click',function(){
       if(!window.LogbookPDF || !window.jspdf){ toast('PDF module failed to load'); return; }
       var fmt=b.getAttribute('data-pdf');
-      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:S.flights,sim:S.sim,profile:curProfile(),format:fmt,version:(typeof APP_VERSION!=='undefined'?APP_VERSION:'')});
+      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:loggedF(S.flights),sim:S.sim,profile:curProfile(),format:fmt,version:(typeof APP_VERSION!=='undefined'?APP_VERSION:'')});
         doc.save('logbook_'+fmt+'_'+today()+'.pdf'); toast(fmt+' PDF created'); }
       catch(e){ console.error(e); toast('PDF creation failed'); }
     }); });
