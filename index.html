@@ -441,6 +441,7 @@
 
       <div class="section-head"><h2>Roster import</h2></div>
       <button class="btn ghost sm" id="rosterBtn" style="width:100%">Import roster (planned flights)</button>
+      <button class="btn ghost sm" id="clearPlannedBtn" style="width:100%; margin-top:8px">Clear all planned flights</button>
       <div class="fhint" style="margin-top:10px">Paste the monthly roster JSON to pre-load planned flights (operating legs only; deadhead and off/standby excluded). After each flight, open it and tick “Mark as flown” to record actual times. Planned flights are excluded from totals, currency and PDF until flown.</div>
 
       <div class="section-head"><h2>Data</h2></div>
@@ -786,7 +787,7 @@
   var S={flights:[],aircraft:[],sim:[],credentials:[],simdevices:[],employers:[]};
   function reload(){ return Promise.all(DATA_STORES.map(getAll)).then(function(r){ S.flights=r[0]; S.aircraft=r[1]; S.sim=r[2]; S.credentials=r[3]; S.simdevices=r[4]||[]; S.employers=r[5]||[];
     S.flights.sort(byDateDesc); S.sim.sort(byDateDesc); }); }
-  function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||'') || (b._c||0)-(a._c||0); }
+  function byDateDesc(a,b){ var d=(b.date||'').localeCompare(a.date||''); if(d) return d; var ao=(a.off==null?-1:a.off), bo=(b.off==null?-1:b.off); if(bo!==ao) return bo-ao; return (b._c||0)-(a._c||0); }
   // Classify a flight to an employer by flight-number prefix (longest match wins). null = unassigned.
   function employerOf(fno){ fno=(fno||'').trim().toUpperCase(); if(!fno) return null; var best=null, bl=-1;
     (S.employers||[]).forEach(function(e){ (e.prefixes||[]).forEach(function(p){ p=(p||'').trim().toUpperCase(); if(p && fno.indexOf(p)===0 && p.length>bl){ best=e.name; bl=p.length; } }); });
@@ -1384,6 +1385,11 @@
   });
   // ---- Roster import: bulk planned flights (operating legs only; deadhead excluded upstream) ----
   if($('#rosterBtn')) $('#rosterBtn').addEventListener('click',function(){ $('#rosterErr').textContent=''; openM('m-roster'); });
+  if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
+    var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
+    if(!confirm('Delete all '+pl.length+' planned (not-yet-flown) flights? Flown flights are not affected.')) return;
+    Promise.all(pl.map(function(f){ return del('flights',f.id); })).then(reload).then(function(){ renderLog(); if($('#view-dash')&&$('#view-dash').classList.contains('active')) renderDash(); toast(pl.length+' planned flights deleted'); });
+  });
   if($('#rosterParse')) $('#rosterParse').addEventListener('click',function(){
     var raw=$('#rosterJson').value.trim(); $('#rosterErr').textContent='';
     if(!raw){ $('#rosterErr').textContent='Paste JSON first.'; return; }
@@ -1553,12 +1559,13 @@
       schedOff:(prev.schedOff!=null?prev.schedOff:null), schedOn:(prev.schedOn!=null?prev.schedOn:null) };
     if(editFid){ var old=S.flights.filter(function(x){return x.id===editFid;})[0]; if(old) obj._c=old._c; }
     var matchedPlanned=false;
-    if(!editFid){ // a newly logged flight (photo import or manual) folds into a matching PLANNED roster entry, if any
+    if(!editFid){ // a newly logged flight folds into a matching PLANNED roster entry (fno ±1 day, or same-day route)
       var dn=(obj.fno||'').replace(/\D/g,''); var dd=obj.date;
-      var cand=S.flights.filter(function(x){ return x.status==='planned' && (x.date||'')===dd; });
-      var pm=(dn?cand.filter(function(x){ return (x.fno||'').replace(/\D/g,'')===dn; })[0]:null)
-            || (obj.dep?cand.filter(function(x){ return x.dep===obj.dep && x.arr===obj.arr; })[0]:null);
-      if(pm){ obj.id=pm.id; obj._c=pm._c; matchedPlanned=true; }
+      function dShift(ds,n){ var d=new Date(ds+'T00:00:00Z'); if(isNaN(d)) return ds; d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+      var near=[dd, dShift(dd,-1), dShift(dd,1)];
+      var pm=(dn? S.flights.filter(function(x){ return x.status==='planned' && near.indexOf(x.date||'')>=0 && (x.fno||'').replace(/\D/g,'')===dn; })[0] : null)
+            || (obj.dep? S.flights.filter(function(x){ return x.status==='planned' && (x.date||'')===dd && x.dep===obj.dep && x.arr===obj.arr; })[0] : null);
+      if(pm){ obj.id=pm.id; obj._c=pm._c; obj.date=obj.date||pm.date; matchedPlanned=true; }
     }
     put('flights',obj).then(reload).then(function(){
       if(!editFid && pasteAll.length){ pasteIdx++; toast('Saved '+pasteIdx+' / '+pasteAll.length+(matchedPlanned?' (planned filled)':'')); openReview(); }
