@@ -265,6 +265,8 @@
   #dashEmp .bar .bv{padding-left:8px}
   #dashPlanned .bar{grid-template-columns:104px 1fr auto}
   #dashPlanned .bar .bv{padding-left:8px}
+  #dashFunc .bar{grid-template-columns:104px 1fr auto}
+  #dashFunc .bar .bv{padding-left:8px}
   .bar .bt.estack{display:flex}
   .bar .bt.estack .bf{border-radius:0}
   .inclrow{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-dim); margin:0 2px 12px; -webkit-user-select:none; user-select:none}
@@ -906,8 +908,13 @@
     var lg=loggedF(S.flights); var allMin=totals(lg).total + S.sim.reduce(function(a,s){return a+(s.total||0);},0);
     $('#hdrTail').textContent=fmtHM(allMin)+' · '+(lg.length+S.sim.length)+'R';
 
-    var fmax=Math.max(t.pic+t.picus,t.pic,t.picus,t.sic,t.dual,t.relief,1);
-    $('#dashFunc').innerHTML=[['PIC + PICUS',t.pic+t.picus,'green'],['PIC',t.pic,''],['PICUS',t.picus,'amber'],['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
+    var fmax=Math.max(t.pic+t.picus,t.sic,t.dual,t.relief,1);
+    var ppTot=t.pic+t.picus;
+    var picW=Math.round(t.pic/fmax*100), ppW=Math.round(ppTot/fmax*100); if(picW>ppW)picW=ppW; var picusW=ppW-picW;
+    var ppSeg='<div class="bf cyan" style="width:'+picW+'%"></div><div class="bf amber" style="width:'+picusW+'%"></div>';
+    var ppVal=(ppTot>0)?(fmtHM(ppTot)+' <span style="color:var(--cyan)">'+fmtHM(t.pic)+'</span>/<span style="color:var(--amber)">'+fmtHM(t.picus)+'</span>'):fmtHM(ppTot);
+    var ppBar='<div class="bar"><div class="bl">PIC + PICUS</div><div class="bt estack">'+ppSeg+'</div><div class="bv">'+ppVal+'</div></div>';
+    $('#dashFunc').innerHTML=ppBar+[['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
     var dayMin=Math.max(t.total-t.night,0);
     var cmax=Math.max(t.night,dayMin,t.actual,t.xc,t.mp,1);
     $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,''],['MULTI-PILOT',t.mp,'violet']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
