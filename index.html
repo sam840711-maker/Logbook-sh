@@ -456,6 +456,15 @@
         <div class="fhint" style="margin-top:4px">Stored on this device. Already preset; change only if you issue a new OAuth credential.</div>
       </details>
 
+      <div class="section-head"><h2>Cloud backup</h2></div>
+      <div id="gdriveStatus" class="fhint" style="margin-bottom:8px">Last cloud backup: —</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+        <button class="btn ghost sm" id="gdriveBackup">Back up now</button>
+        <button class="btn ghost sm" id="gdriveRestore">Restore from cloud</button>
+      </div>
+      <label class="fhint" style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer"><input type="checkbox" id="gdriveAuto"> Auto-backup once a day when connected</label>
+      <div class="fhint" style="margin-top:6px">Encrypted in transit and stored in your private Google Drive app folder (hidden, only this app can read it). Keeps the latest 30 backups. Uses the same Google connection as calendar sync.</div>
+
       <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
         <button class="btn ghost sm" id="expJson">JSON backup</button>
@@ -709,6 +718,16 @@
     <div id="rsyncDiffErr" class="fhint" style="color:#ff8a80"></div>
   </div>
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="rsyncApply">Apply to FLT calendar</button></div>
+</div></div>
+
+<div class="modal" id="m-driverestore"><div class="scrim" data-close></div><div class="sheet" style="max-width:620px">
+  <div class="sheet-head"><h3>Restore from cloud</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0">Pick a backup to restore. Your current data is saved as a restore point first, then replaced.</p>
+    <div id="driveList" style="max-height:50vh; overflow:auto"></div>
+    <div id="driveErr" class="fhint" style="color:#ff8a80; margin-top:6px"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Close</button></div>
 </div></div>
 
 <div class="modal" id="m-actype"><div class="scrim" data-close></div><div class="sheet">
@@ -1486,7 +1505,7 @@
     || '836300793486-tm7ai7ehdllc2031mjev3e248af8mgt1.apps.googleusercontent.com';
   var FLT_CAL_ID='3talktlcoeng6ovljccuobc8go@group.calendar.google.com';
   var GCAL_API='https://www.googleapis.com/calendar/v3';
-  var GCAL_SCOPES='https://www.googleapis.com/auth/calendar.events';
+  var GCAL_SCOPES='https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata';
   var gcalTokenClient=null, gcalDiffLast=null;
 
   function gcalReady(){ return typeof google!=='undefined' && google.accounts && google.accounts.oauth2; }
@@ -1613,6 +1632,96 @@
         else { toast('Calendar synced ('+results.length+' ops)'); closeM(); }
       }).catch(function(e){ btn.disabled=false; $('#rsyncDiffErr').textContent='Apply error: '+(e.message||e); });
   });
+
+  // ===== v0.6d: Google Drive backup (appDataFolder) =====
+  var DRIVE='https://www.googleapis.com/drive/v3', DRIVE_UP='https://www.googleapis.com/upload/drive/v3';
+  function driveFetch(base, path, init, retried){ init=init||{};
+    return ensureToken(retried?{interactive:true}:{}).then(function(token){
+      return fetch(base+path, Object.assign({}, init, { headers: Object.assign({'Authorization':'Bearer '+token}, init.headers||{}) }));
+    }).then(function(r){
+      if((r.status===401||r.status===403) && !retried){ try{ sessionStorage.removeItem('gcal_token'); sessionStorage.removeItem('gcal_token_exp'); }catch(e){} return driveFetch(base,path,init,true); }
+      if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' '+String(t).slice(0,180)); });
+      return r.status===204?null:r.json();
+    });
+  }
+  function dvPad(n){ return (n<10?'0':'')+n; }
+  function dvSlug(){ var d=new Date(); return ''+d.getFullYear()+dvPad(d.getMonth()+1)+dvPad(d.getDate())+'-'+dvPad(d.getHours())+dvPad(d.getMinutes())+dvPad(d.getSeconds()); }
+  function dvDevice(){ var ua=navigator.userAgent||''; var m=ua.match(/(iPhone|iPad|Android|Macintosh|Windows|Linux|CrOS)/); return (m?m[1]:'Device'); }
+  function dvSha256(str){ try{ var enc=new TextEncoder().encode(str);
+    return crypto.subtle.digest('SHA-256',enc).then(function(buf){ return Array.prototype.map.call(new Uint8Array(buf),function(b){return ('0'+b.toString(16)).slice(-2);}).join(''); });
+  }catch(e){ return Promise.resolve(''); } }
+  function dvPayload(){ var data=snapData();
+    var json=JSON.stringify(data);
+    return dvSha256(json).then(function(sum){ return { app:'pilot_logbook', appVersion:(typeof APP_VERSION!=='undefined'?APP_VERSION:'dev'),
+      schemaVersion:VER, exportedAt:new Date().toISOString(), device:dvDevice(),
+      counts:snapCounts(), checksum:'sha256:'+sum, data:data }; });
+  }
+  function dvUpload(payload){
+    var meta={ name:'sh-logbook-'+dvSlug()+'.json', parents:['appDataFolder'], mimeType:'application/json' };
+    var b='shlee'+Math.random().toString(36).slice(2);
+    var body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)
+      +'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(payload)+'\r\n--'+b+'--';
+    return driveFetch(DRIVE_UP, '/files?uploadType=multipart&fields=id,name,size,modifiedTime',
+      { method:'POST', headers:{'Content-Type':'multipart/related; boundary='+b}, body:body });
+  }
+  function dvList(){ return driveFetch(DRIVE,'/files?spaces=appDataFolder&fields=files(id,name,size,modifiedTime)&orderBy=modifiedTime desc&pageSize=100',{}).then(function(r){ return (r&&r.files)||[]; }); }
+  function dvDownload(id){ return ensureToken().then(function(t){ return fetch(DRIVE+'/files/'+id+'?alt=media',{headers:{'Authorization':'Bearer '+t}}); }).then(function(r){ if(!r.ok) throw new Error('download '+r.status); return r.json(); }); }
+  function dvDelete(id){ return driveFetch(DRIVE,'/files/'+id,{method:'DELETE'}); }
+  function dvPrune(){ return dvList().then(function(files){ return Promise.all(files.slice(30).map(function(f){ return dvDelete(f.id).catch(function(){}); })); }).catch(function(){}); }
+
+  function renderBackupStatus(){ var el=$('#gdriveStatus'); if(!el) return;
+    var last; try{ last=localStorage.getItem('gdrive_last'); }catch(e){}
+    el.textContent='Last cloud backup: '+(last?fmtSnapTime(last):'—'); }
+  function dvBackupNow(reason){
+    return dvPayload().then(dvUpload).then(function(){
+      try{ localStorage.setItem('gdrive_last', new Date().toISOString()); }catch(e){}
+      renderBackupStatus(); return dvPrune();
+    });
+  }
+  if($('#gdriveBackup')) $('#gdriveBackup').addEventListener('click',function(){
+    var btn=this; btn.disabled=true; toast('Backing up…');
+    dvBackupNow('manual').then(function(){ btn.disabled=false; toast('Backed up to Drive'); })
+      .catch(function(e){ btn.disabled=false; toast('Backup failed: '+(e.message||e)); });
+  });
+  if($('#gdriveRestore')) $('#gdriveRestore').addEventListener('click',function(){
+    $('#driveErr').textContent=''; $('#driveList').innerHTML='<div class="fhint">Loading…</div>'; openM('m-driverestore');
+    dvList().then(function(files){
+      if(!files.length){ $('#driveList').innerHTML='<div class="empty"><b>No cloud backups</b>Tap “Back up now” first.</div>'; return; }
+      $('#driveList').innerHTML=files.map(function(f){
+        var kb=f.size?Math.max(1,Math.round(f.size/1024))+' KB':''; 
+        return '<div class="row"><div class="main"><div class="t">'+esc(fmtSnapTime(f.modifiedTime))+'</div><div class="s">'+esc(f.name)+(kb?(' \u00b7 '+kb):'')+'</div></div>'
+          +'<div class="r"><button type="button" class="chip" data-driverestore="'+f.id+'">Restore</button></div></div>';
+      }).join('');
+    }).catch(function(e){ $('#driveErr').textContent='List failed: '+(e.message||e); $('#driveList').innerHTML=''; });
+  });
+  document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-driverestore]'); if(!b) return;
+    var id=b.getAttribute('data-driverestore');
+    $('#driveErr').textContent='Downloading…';
+    dvDownload(id).then(function(j){
+      var d=(j&&j.data)||null; if(!d||(!d.flights&&!d.aircraft)){ $('#driveErr').textContent='Unrecognized backup format.'; return; }
+      var verify= j.checksum ? dvSha256(JSON.stringify(d)).then(function(sum){ return ('sha256:'+sum)===j.checksum; }) : Promise.resolve(true);
+      verify.then(function(ok){
+        var warn= ok?'' : '\n\n\u26a0 Checksum mismatch — the file may be corrupted. Restore anyway?';
+        if(!confirm('Restore this backup ('+fmtSnapTime(j.exportedAt)+', '+((j.counts&&j.counts.flights)||(d.flights||[]).length)+' flights)?\nCurrent data is saved as a restore point, then replaced.'+warn)) return;
+        saveSnapshot('before cloud restore').then(function(){ return Promise.all(DATA_STORES.map(clearStore)); }).then(function(){
+          var ops=[]; DATA_STORES.forEach(function(st){ (d[st]||[]).forEach(function(o){ if(o&&o.id) ops.push(put(st,o)); }); }); return Promise.all(ops);
+        }).then(reload).then(function(){ closeM(); go('dash'); toast('Restored from cloud'); });
+      });
+    }).catch(function(e){ $('#driveErr').textContent='Restore failed: '+(e.message||e); });
+  });
+  if($('#gdriveAuto')){ try{ $('#gdriveAuto').checked=(localStorage.getItem('gdrive_auto')==='1'); }catch(e){}
+    $('#gdriveAuto').addEventListener('change',function(){ try{ localStorage.setItem('gdrive_auto', this.checked?'1':'0'); }catch(e){} if(this.checked) toast('Auto-backup on'); });
+  }
+  renderBackupStatus();
+  // best-effort daily auto-backup: only if enabled, GIS ready, a silent token is obtainable, and >24h since last
+  setTimeout(function(){
+    var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
+    if(!on || !gcalReady()) return;
+    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
+    if(Date.now()-last < 24*3600*1000) return;
+    ensureToken({interactive:false}).then(function(){ return dvBackupNow('auto-daily'); })
+      .then(function(){ /* silent success */ }).catch(function(){ /* silent: needs manual connect */ });
+  }, 3500);
   if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
     var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
     if(!confirm('Delete all '+pl.length+' planned (not-yet-flown) flights? Flown flights are not affected.')) return;
