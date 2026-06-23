@@ -928,8 +928,6 @@
     var crmax=Math.max.apply(null,cVals.concat([1]));
     $('#dashCurr').innerHTML=cKeys.map(function(k,i){ var a=ckv(ccA,k[1]), s=ckv(ccS,k[1]);
       return bar(k[0],cVals[i],crmax,'green',true,(a+s)+' ('+a+'/'+s+')'); }).join('');
-    // cluster landings reflect scope (All = aircraft + sim)
-    $('#dashLdg').textContent = sc==='sim'? ccS.ldg : sc==='ac'? ccA.ldg : (ccA.ldg+ccS.ldg);
     var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
     var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
