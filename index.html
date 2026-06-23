@@ -1572,7 +1572,7 @@
   function gcalLinked(){ try{ return localStorage.getItem('gcal_linked')==='1'; }catch(e){ return false; } }
   function renderGcalStatus(){ var el=$('#gcalStatus'); if(!el) return;
     if(gcalConnected()) el.textContent='Google: connected';
-    else if(gcalLinked()) el.textContent= gcalOnline()? 'Google: linked (reconnecting…)' : 'Google: linked (offline)';
+    else if(gcalLinked()) el.textContent= gcalOnline()? 'Google: linked' : 'Google: linked (offline)';
     else if(!gcalReady()) el.textContent='Google: sign-in library loading…';
     else el.textContent='Google: not connected';
     var conn=gcalConnected()||gcalLinked();
@@ -1586,7 +1586,7 @@
   }
   if($('#gcalConnect')) $('#gcalConnect').addEventListener('click',function(){
     if(!gcalOnline()){ toast('You are offline — connect to the internet first.'); return; }
-    ensureToken({interactive:true}).then(function(){ try{ localStorage.setItem('gcal_linked','1'); }catch(e){} renderGcalStatus(); toast('Google connected'); })
+    ensureToken({interactive:true}).then(function(){ try{ localStorage.setItem('gcal_linked','1'); }catch(e){} renderGcalStatus(); toast('Google connected'); maybeAutoBackup(); })
       .catch(function(e){ toast(e.message||'Connect failed'); });
   });
   if($('#gcalDisconnect')) $('#gcalDisconnect').addEventListener('click',function(){
@@ -1596,16 +1596,18 @@
     renderGcalStatus(); toast('Disconnected');
   });
   // Silent reconnect on boot: if linked before and online, get a fresh token without a popup.
-  function gcalAutoReconnect(tries){ tries=tries==null?12:tries;
-    if(gcalConnected()){ renderGcalStatus(); return; }
-    if(!gcalLinked() || !gcalOnline()){ renderGcalStatus(); return; }
-    if(!gcalReady()){ if(tries>0) setTimeout(function(){ gcalAutoReconnect(tries-1); }, 500); else renderGcalStatus(); return; }
-    ensureToken({interactive:false}).then(function(){ renderGcalStatus(); })
-      .catch(function(){ renderGcalStatus(); }); // token couldn't refresh silently → user taps Connect once
-  }
-  setTimeout(function(){ gcalAutoReconnect(); }, 700);
-  window.addEventListener('online', function(){ renderGcalStatus(); gcalAutoReconnect(); });
-  window.addEventListener('offline', function(){ renderGcalStatus(); });
+  // On boot we only render status — we do NOT request a token here. Acquiring a token on launch
+  // makes the Google sign-in popup flash open then closed; instead the token is fetched lazily the
+  // first time an action (sync / backup) actually needs it.
+  function getTokenSmart(){ return ensureToken({interactive:false}).catch(function(){ return ensureToken({interactive:true}); }); }
+  function maybeAutoBackup(){ var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
+    if(!on || !gcalConnected()) return;            // only when a live token already exists → never opens a window
+    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
+    if(Date.now()-last < 24*3600*1000) return;
+    if(typeof dvBackupNow==='function') dvBackupNow('auto-daily').catch(function(){}); }
+  setTimeout(renderGcalStatus, 700); setTimeout(renderGcalStatus, 1800);
+  window.addEventListener('online', renderGcalStatus);
+  window.addEventListener('offline', renderGcalStatus);
 
   if($('#rsyncSync')) $('#rsyncSync').addEventListener('click',function(){
     if(!rsyncLast || !rsyncLast.events.length){ $('#rsyncErr').textContent='Generate a preview first.'; return; }
@@ -1613,7 +1615,7 @@
     if(rsyncLast.unknownCodes.length){ $('#rsyncErr').textContent='Resolve unknown codes before syncing: '+rsyncLast.unknownCodes.join(', '); return; }
     if(!gcalOnline()){ $('#rsyncErr').textContent='You are offline — connect to the internet to sync.'; return; }
     $('#rsyncErr').textContent='Connecting & reading calendar…';
-    ensureToken({interactive:!gcalConnected()}).then(function(){ renderGcalStatus(); return gcalListMonth(rsyncLast.month); })
+    getTokenSmart().then(function(){ renderGcalStatus(); maybeAutoBackup(); return gcalListMonth(rsyncLast.month); })
       .then(function(list){
         var existing=(list&&list.items)||[];
         var d=RosterSync.diff(existing, rsyncLast.events);
@@ -1738,15 +1740,9 @@
     $('#gdriveAuto').addEventListener('change',function(){ try{ localStorage.setItem('gdrive_auto', this.checked?'1':'0'); }catch(e){} if(this.checked) toast('Auto-backup on'); });
   }
   renderBackupStatus();
-  // best-effort daily auto-backup: only if enabled, GIS ready, a silent token is obtainable, and >24h since last
-  setTimeout(function(){
-    var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
-    if(!on || !gcalReady()) return;
-    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
-    if(Date.now()-last < 24*3600*1000) return;
-    ensureToken({interactive:false}).then(function(){ return dvBackupNow('auto-daily'); })
-      .then(function(){ /* silent success */ }).catch(function(){ /* silent: needs manual connect */ });
-  }, 3500);
+  // best-effort daily auto-backup: runs only if a live token already exists this session, so it
+  // never opens a sign-in window. Otherwise it runs opportunistically after Connect / Sync.
+  setTimeout(function(){ maybeAutoBackup(); }, 3500);
   if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
     var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
     if(!confirm('Delete all '+pl.length+' planned (not-yet-flown) flights? Flown flights are not affected.')) return;
