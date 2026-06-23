@@ -432,11 +432,9 @@
       <div class="fhint" id="settingsSaved" style="margin-bottom:6px"></div>
       <div class="miscbtns4">
         <button class="btn ghost sm" data-pdf="EASA">EASA</button>
-        <button class="btn ghost sm" data-pdf="FAA">FAA</button>
         <button class="btn ghost sm" data-pdf="GCAA">GCAA</button>
-        <button class="btn ghost sm" data-pdf="JCAB">JCAB</button>
       </div>
-      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. GCAA adds a licence-total reconciliation note. JCAB uses the Japan logbook column layout (incl. operational-time IFR and FSTD-session columns).</div>
+      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. <b>EASA</b> is the ICAO-standard European layout; <b>GCAA</b> (UAE) keeps the FLIGHT/PICUS columns, adds an FSTD-session block and a licence-total reconciliation note.</div>
 
       <div class="section-head"><h2>Roster import</h2></div>
       <button class="btn ghost sm" id="rosterBtn" style="width:100%">Import roster (planned flights)</button>
@@ -456,30 +454,39 @@
         <div class="fhint" style="margin-top:4px">Stored on this device. Already preset; change only if you issue a new OAuth credential.</div>
       </details>
 
-      <div class="section-head"><h2>Cloud backup</h2></div>
+      <div class="section-head"><h2>Backup &amp; restore</h2></div>
+      <p class="eyebrow" style="margin:4px 0 4px">Cloud (Google Drive)</p>
       <div id="gdriveStatus" class="fhint" style="margin-bottom:8px">Last cloud backup: —</div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
         <button class="btn ghost sm" id="gdriveBackup">Back up now</button>
         <button class="btn ghost sm" id="gdriveRestore">Restore from cloud</button>
       </div>
       <label class="fhint" style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer"><input type="checkbox" id="gdriveAuto"> Auto-backup once a day when connected</label>
-      <div class="fhint" style="margin-top:6px">Encrypted in transit and stored in your private Google Drive app folder (hidden, only this app can read it). Keeps the latest 30 backups. Uses the same Google connection as calendar sync.</div>
+      <div class="fhint" style="margin-top:6px">Stored in your private Google Drive app folder (hidden, only this app can read it). Keeps the latest 30. Uses the same Google connection as calendar sync.</div>
 
-      <div class="section-head"><h2>Data</h2></div>
-      <div class="miscbtns">
+      <p class="eyebrow" style="margin:14px 0 4px">This device (file)</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
         <button class="btn ghost sm" id="expJson">JSON backup</button>
         <button class="btn ghost sm filebtn">JSON restore<input type="file" id="impJson" accept=".json,application/json"></button>
-        <button class="btn ghost sm" id="expCsv">CSV export</button>
-        <button class="btn danger sm" id="wipe">Delete all</button>
       </div>
-      <button class="btn ghost sm filebtn" id="impPilotlogBtn" style="margin-top:10px; width:100%">Import CrewLounge PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
-      <div class="fhint" style="margin-top:10px">Data is stored only on this device (IndexedDB). Back up to JSON regularly; restore replaces all current data. PILOTLOG import adds flights, sim sessions and aircraft, skipping duplicates.</div>
+      <div class="fhint" style="margin-top:8px">A portable backup file kept on this device. Restoring replaces all current data (a restore point is saved first).</div>
 
       <div class="section-head acsec" id="snapHead"><h2>Restore points <span class="cnt" id="snapCount">(0)</span></h2><span class="chev" id="snapChev">&#9656;</span><button class="add" id="snapNow">+ Save now</button></div>
       <div id="snapWrap" class="collapse">
         <div id="snapList"></div>
-        <div class="fhint" style="margin-top:8px">Saved automatically on app open when data changes, and just before restore / import / delete-all. Keeps the latest 10 on this device. Restoring replaces all current data (a point for the current state is saved first).</div>
+        <div class="fhint" style="margin-top:8px">Local undo points — saved automatically when data changes and just before any restore / import / delete-all. Keeps the latest 10 on this device.</div>
       </div>
+
+      <div class="section-head"><h2>Import / Export</h2></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+        <button class="btn ghost sm" id="expCsv">CSV export</button>
+        <button class="btn ghost sm filebtn" id="impPilotlogBtn">Import PILOTLOG CSV<input type="file" id="impPilotlog" accept=".csv,text/csv"></button>
+      </div>
+      <div class="fhint" style="margin-top:8px">CSV export for spreadsheets. PILOTLOG import adds flights, sim sessions and aircraft from a CrewLounge CSV, skipping duplicates.</div>
+
+      <div class="section-head"><h2>Danger zone</h2></div>
+      <button class="btn danger sm" id="wipe" style="width:100%">Delete all data</button>
+      <div class="fhint" style="margin-top:8px">Permanently deletes everything on this device. A restore point is saved first, so it can be undone above.</div>
     </section>
     <section class="view" id="view-fleet">
       <div class="backbar" id="fleetBack"><span class="bb-arrow">&#8592;</span><span>Manage</span></div>
@@ -1561,12 +1568,16 @@
       })).then(function(){ return next(i+size); });
     })(0); }
 
+  function gcalOnline(){ return navigator.onLine!==false; }
+  function gcalLinked(){ try{ return localStorage.getItem('gcal_linked')==='1'; }catch(e){ return false; } }
   function renderGcalStatus(){ var el=$('#gcalStatus'); if(!el) return;
-    if(!gcalReady() && !gcalConnected()){ el.textContent='Google: sign-in library loading…'; }
-    else if(gcalConnected()){ el.textContent='Google: connected'; }
-    else { el.textContent='Google: not connected'; }
-    if($('#gcalConnect')) $('#gcalConnect').style.display=gcalConnected()?'none':'';
-    if($('#gcalDisconnect')) $('#gcalDisconnect').style.display=gcalConnected()?'':'none';
+    if(gcalConnected()) el.textContent='Google: connected';
+    else if(gcalLinked()) el.textContent= gcalOnline()? 'Google: linked (reconnecting…)' : 'Google: linked (offline)';
+    else if(!gcalReady()) el.textContent='Google: sign-in library loading…';
+    else el.textContent='Google: not connected';
+    var conn=gcalConnected()||gcalLinked();
+    if($('#gcalConnect')) $('#gcalConnect').style.display=conn?'none':'';
+    if($('#gcalDisconnect')) $('#gcalDisconnect').style.display=conn?'':'none';
   }
   if($('#gcalClientId')){ $('#gcalClientId').value=GCAL_CLIENT_ID;
     $('#gcalClientId').addEventListener('change',function(){ var v=this.value.trim();
@@ -1574,21 +1585,33 @@
       GCAL_CLIENT_ID=v; gcalTokenClient=null; toast('Client ID saved'); });
   }
   if($('#gcalConnect')) $('#gcalConnect').addEventListener('click',function(){
-    ensureToken({interactive:true}).then(function(){ renderGcalStatus(); toast('Google connected'); })
+    if(!gcalOnline()){ toast('You are offline — connect to the internet first.'); return; }
+    ensureToken({interactive:true}).then(function(){ try{ localStorage.setItem('gcal_linked','1'); }catch(e){} renderGcalStatus(); toast('Google connected'); })
       .catch(function(e){ toast(e.message||'Connect failed'); });
   });
   if($('#gcalDisconnect')) $('#gcalDisconnect').addEventListener('click',function(){
     var t=sessionStorage.getItem('gcal_token');
     try{ if(t && gcalReady()) google.accounts.oauth2.revoke(t,function(){}); }catch(e){}
-    try{ sessionStorage.removeItem('gcal_token'); sessionStorage.removeItem('gcal_token_exp'); }catch(e){}
+    try{ sessionStorage.removeItem('gcal_token'); sessionStorage.removeItem('gcal_token_exp'); localStorage.removeItem('gcal_linked'); }catch(e){}
     renderGcalStatus(); toast('Disconnected');
   });
-  setTimeout(renderGcalStatus, 600); setTimeout(renderGcalStatus, 1800);
+  // Silent reconnect on boot: if linked before and online, get a fresh token without a popup.
+  function gcalAutoReconnect(tries){ tries=tries==null?12:tries;
+    if(gcalConnected()){ renderGcalStatus(); return; }
+    if(!gcalLinked() || !gcalOnline()){ renderGcalStatus(); return; }
+    if(!gcalReady()){ if(tries>0) setTimeout(function(){ gcalAutoReconnect(tries-1); }, 500); else renderGcalStatus(); return; }
+    ensureToken({interactive:false}).then(function(){ renderGcalStatus(); })
+      .catch(function(){ renderGcalStatus(); }); // token couldn't refresh silently → user taps Connect once
+  }
+  setTimeout(function(){ gcalAutoReconnect(); }, 700);
+  window.addEventListener('online', function(){ renderGcalStatus(); gcalAutoReconnect(); });
+  window.addEventListener('offline', function(){ renderGcalStatus(); });
 
   if($('#rsyncSync')) $('#rsyncSync').addEventListener('click',function(){
     if(!rsyncLast || !rsyncLast.events.length){ $('#rsyncErr').textContent='Generate a preview first.'; return; }
     if(!rsyncLast.month){ $('#rsyncErr').textContent='Roster JSON needs a "month" (e.g. "2026-07") for safe sync.'; return; }
     if(rsyncLast.unknownCodes.length){ $('#rsyncErr').textContent='Resolve unknown codes before syncing: '+rsyncLast.unknownCodes.join(', '); return; }
+    if(!gcalOnline()){ $('#rsyncErr').textContent='You are offline — connect to the internet to sync.'; return; }
     $('#rsyncErr').textContent='Connecting & reading calendar…';
     ensureToken({interactive:!gcalConnected()}).then(function(){ renderGcalStatus(); return gcalListMonth(rsyncLast.month); })
       .then(function(list){
@@ -1679,11 +1702,13 @@
     });
   }
   if($('#gdriveBackup')) $('#gdriveBackup').addEventListener('click',function(){
+    if(!gcalOnline()){ toast('You are offline — backup needs internet.'); return; }
     var btn=this; btn.disabled=true; toast('Backing up…');
     dvBackupNow('manual').then(function(){ btn.disabled=false; toast('Backed up to Drive'); })
       .catch(function(e){ btn.disabled=false; toast('Backup failed: '+(e.message||e)); });
   });
   if($('#gdriveRestore')) $('#gdriveRestore').addEventListener('click',function(){
+    if(!gcalOnline()){ toast('You are offline — restore needs internet.'); return; }
     $('#driveErr').textContent=''; $('#driveList').innerHTML='<div class="fhint">Loading…</div>'; openM('m-driverestore');
     dvList().then(function(files){
       if(!files.length){ $('#driveList').innerHTML='<div class="empty"><b>No cloud backups</b>Tap “Back up now” first.</div>'; return; }
