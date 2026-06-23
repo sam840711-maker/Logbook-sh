@@ -27,6 +27,8 @@ function isFresh(url) {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Only handle same-origin app assets. Cross-origin (Google APIs, GIS, fonts CDNs) passes straight through.
+  if (new URL(req.url).origin !== self.location.origin) return;
 
   // Network-first: the app HTML + the small frequently-changing scripts.
   if (isHTML(req) || isFresh(req.url)) {

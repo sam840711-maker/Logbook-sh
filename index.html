@@ -443,9 +443,18 @@
       <button class="btn ghost sm" id="clearPlannedBtn" style="width:100%; margin-top:8px">Clear all planned flights</button>
       <div class="fhint" style="margin-top:10px">Paste the monthly roster JSON to pre-load planned flights (operating legs only; deadhead and off/standby excluded). After each flight, open it and tick “Mark as flown” to record actual times. Planned flights are excluded from totals, currency and PDF until flown.</div>
 
-      <div class="section-head"><h2>Calendar sync <span class="cnt" style="margin-left:auto">preview</span></h2></div>
-      <button class="btn ghost sm" id="rsyncBtn" style="width:100%">Roster &rarr; calendar preview</button>
-      <div class="fhint" style="margin-top:10px">Paste the monthly <b>duty roster JSON</b> (all duties, not just flights) to preview the calendar events it would generate — flights, Show-up, standby, layover, off days and recurrent checks, in KST. Review here first; ICS download is available. Direct Google Calendar sync arrives in a later build.</div>
+      <div class="section-head"><h2>Calendar sync</h2></div>
+      <div id="gcalStatus" class="fhint" style="margin-bottom:8px">Google: checking…</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+        <button class="btn ghost sm" id="gcalConnect">Connect Google</button>
+        <button class="btn ghost sm" id="gcalDisconnect" style="display:none">Disconnect</button>
+      </div>
+      <button class="btn ghost sm" id="rsyncBtn" style="width:100%; margin-top:8px">Roster &rarr; calendar (preview / sync)</button>
+      <div class="fhint" style="margin-top:10px">Paste the monthly <b>duty roster JSON</b> to preview the calendar events, then sync directly to the <b>FLT</b> calendar. Sync is idempotent — re-importing a month updates and removes changed legs without creating duplicates (matched by a hidden <code>[UID]</code> tag). ICS download is also available.</div>
+      <details style="margin-top:8px"><summary class="fhint" style="cursor:pointer">Advanced: Google Client ID</summary>
+        <input class="fld mono" id="gcalClientId" style="font-size:11px; margin-top:6px" placeholder="…apps.googleusercontent.com">
+        <div class="fhint" style="margin-top:4px">Stored on this device. Already preset; change only if you issue a new OAuth credential.</div>
+      </details>
 
       <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
@@ -686,8 +695,20 @@
   <div class="sheet-foot">
     <button class="btn ghost" data-close>Close</button>
     <button class="btn ghost" id="rsyncIcs" style="display:none">Download .ics</button>
+    <button class="btn ghost" id="rsyncSync" style="display:none">Sync to calendar</button>
     <button class="btn primary" id="rsyncGen">Generate preview</button>
   </div>
+</div></div>
+
+<div class="modal" id="m-rsyncdiff"><div class="scrim" data-close></div><div class="sheet" style="max-width:680px">
+  <div class="sheet-head"><h3>Confirm calendar sync</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" id="rsyncDiffSummary" style="margin-top:0"></p>
+    <div id="rsyncDiffList" style="max-height:44vh; overflow:auto"></div>
+    <div id="rsyncDiffProg" class="fhint" style="margin-top:6px"></div>
+    <div id="rsyncDiffErr" class="fhint" style="color:#ff8a80"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="rsyncApply">Apply to FLT calendar</button></div>
 </div></div>
 
 <div class="modal" id="m-actype"><div class="scrim" data-close></div><div class="sheet">
@@ -753,6 +774,7 @@
 <script src="lib/font-kr.js"></script>
 <script src="lib/logbook-pdf.js"></script>
 <script src="lib/roster-sync.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
 (function(){
@@ -1447,7 +1469,7 @@
     $('#rsyncTableWrap').innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px" class="rsynctab">'
       +'<thead><tr style="text-align:left;color:var(--dim);font-size:11px">'
       +'<th>Date</th><th>Type</th><th>When (KST)</th><th>Color</th><th>Summary</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    $('#rsyncIcs').style.display='';
+    $('#rsyncIcs').style.display=''; $('#rsyncSync').style.display='';
   });
   if($('#rsyncIcs')) $('#rsyncIcs').addEventListener('click',function(){
     if(!rsyncLast || typeof RosterSync==='undefined') return;
@@ -1457,6 +1479,139 @@
     a.download='fltroster-'+(rsyncLast.month||'export')+'.ics'; document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },100);
     toast('ICS downloaded ('+rsyncLast.events.length+' events)');
+  });
+
+  // ===== v0.6c: Google OAuth (GIS) + Calendar API + idempotent sync =====
+  var GCAL_CLIENT_ID=(function(){ try{ return localStorage.getItem('gcal_client_id'); }catch(e){ return null; } })()
+    || '836300793486-tm7ai7ehdllc2031mjev3e248af8mgt1.apps.googleusercontent.com';
+  var FLT_CAL_ID='3talktlcoeng6ovljccuobc8go@group.calendar.google.com';
+  var GCAL_API='https://www.googleapis.com/calendar/v3';
+  var GCAL_SCOPES='https://www.googleapis.com/auth/calendar.events';
+  var gcalTokenClient=null, gcalDiffLast=null;
+
+  function gcalReady(){ return typeof google!=='undefined' && google.accounts && google.accounts.oauth2; }
+  function gcalConnected(){ try{ return !!sessionStorage.getItem('gcal_token') && Date.now()<+(sessionStorage.getItem('gcal_token_exp')||0); }catch(e){ return false; } }
+  function initGoogleAuth(){
+    if(gcalTokenClient || !gcalReady()) return gcalTokenClient;
+    gcalTokenClient=google.accounts.oauth2.initTokenClient({ client_id:GCAL_CLIENT_ID, scope:GCAL_SCOPES, callback:function(){} });
+    return gcalTokenClient;
+  }
+  function ensureToken(opt){ opt=opt||{};
+    if(gcalConnected()) return Promise.resolve(sessionStorage.getItem('gcal_token'));
+    return new Promise(function(res,rej){
+      if(!GCAL_CLIENT_ID){ rej(new Error('Set your Google Client ID first (Advanced).')); return; }
+      if(!initGoogleAuth()){ rej(new Error('Google sign-in not loaded — check connection and retry.')); return; }
+      gcalTokenClient.callback=function(r){ if(r&&r.access_token){
+        try{ sessionStorage.setItem('gcal_token',r.access_token);
+          sessionStorage.setItem('gcal_token_exp', Date.now()+(((r.expires_in||3600)-60)*1000)); }catch(e){}
+        res(r.access_token);
+      } else rej(new Error('Authorization failed')); };
+      gcalTokenClient.error_callback=function(e){ rej(new Error((e&&e.type)||'Authorization cancelled')); };
+      gcalTokenClient.requestAccessToken({ prompt: opt.interactive?'consent':'' });
+    });
+  }
+  function gcal(path, init){ init=init||{};
+    return ensureToken().then(function(token){
+      return fetch(GCAL_API+path, Object.assign({}, init, { headers: Object.assign({
+        'Authorization':'Bearer '+token, 'Content-Type':'application/json' }, init.headers||{}) }));
+    }).then(function(r){
+      if(r.status===401){ try{ sessionStorage.removeItem('gcal_token_exp'); sessionStorage.removeItem('gcal_token'); }catch(e){} return gcal(path, init); }
+      if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' '+String(t).slice(0,180)); });
+      return r.status===204?null:r.json();
+    });
+  }
+  function gcalListMonth(yyyymm){
+    var y=+yyyymm.slice(0,4), m=+yyyymm.slice(5,7), ny=m===12?y+1:y, nm=m===12?1:m+1;
+    var qs=new URLSearchParams({ q:'[FLTROSTER:'+yyyymm+']',
+      timeMin:yyyymm+'-01T00:00:00+09:00', timeMax:ny+'-'+('0'+nm).slice(-2)+'-01T00:00:00+09:00',
+      singleEvents:'true', maxResults:'250' });
+    return gcal('/calendars/'+encodeURIComponent(FLT_CAL_ID)+'/events?'+qs.toString());
+  }
+  function gcalInsert(body){ return gcal('/calendars/'+encodeURIComponent(FLT_CAL_ID)+'/events',{method:'POST',body:JSON.stringify(body)}); }
+  function gcalPatch(id,body){ return gcal('/calendars/'+encodeURIComponent(FLT_CAL_ID)+'/events/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)}); }
+  function gcalDelete(id){ return gcal('/calendars/'+encodeURIComponent(FLT_CAL_ID)+'/events/'+encodeURIComponent(id),{method:'DELETE'}); }
+  function gcalWithRetry(fn,max){ max=max||3; return (function attempt(i){
+    return Promise.resolve().then(fn).catch(function(e){ var msg=String(e&&e.message||'');
+      if(i<max-1 && /(^|\D)(429|5\d\d)(\D|$)/.test(msg)) return new Promise(function(r){setTimeout(r,800*Math.pow(2,i));}).then(function(){return attempt(i+1);});
+      throw e; }); })(0); }
+  function gcalRunChunks(tasks,size,onProg){ size=size||6; var results=[],done=0;
+    return (function next(i){ if(i>=tasks.length) return Promise.resolve(results);
+      return Promise.all(tasks.slice(i,i+size).map(function(t){
+        return gcalWithRetry(t).then(function(r){results.push({ok:true});},function(e){results.push({ok:false,e:e});})
+          .then(function(){ done++; if(onProg)onProg(done,tasks.length); });
+      })).then(function(){ return next(i+size); });
+    })(0); }
+
+  function renderGcalStatus(){ var el=$('#gcalStatus'); if(!el) return;
+    if(!gcalReady() && !gcalConnected()){ el.textContent='Google: sign-in library loading…'; }
+    else if(gcalConnected()){ el.textContent='Google: connected'; }
+    else { el.textContent='Google: not connected'; }
+    if($('#gcalConnect')) $('#gcalConnect').style.display=gcalConnected()?'none':'';
+    if($('#gcalDisconnect')) $('#gcalDisconnect').style.display=gcalConnected()?'':'none';
+  }
+  if($('#gcalClientId')){ $('#gcalClientId').value=GCAL_CLIENT_ID;
+    $('#gcalClientId').addEventListener('change',function(){ var v=this.value.trim();
+      try{ if(v) localStorage.setItem('gcal_client_id',v); else localStorage.removeItem('gcal_client_id'); }catch(e){}
+      GCAL_CLIENT_ID=v; gcalTokenClient=null; toast('Client ID saved'); });
+  }
+  if($('#gcalConnect')) $('#gcalConnect').addEventListener('click',function(){
+    ensureToken({interactive:true}).then(function(){ renderGcalStatus(); toast('Google connected'); })
+      .catch(function(e){ toast(e.message||'Connect failed'); });
+  });
+  if($('#gcalDisconnect')) $('#gcalDisconnect').addEventListener('click',function(){
+    var t=sessionStorage.getItem('gcal_token');
+    try{ if(t && gcalReady()) google.accounts.oauth2.revoke(t,function(){}); }catch(e){}
+    try{ sessionStorage.removeItem('gcal_token'); sessionStorage.removeItem('gcal_token_exp'); }catch(e){}
+    renderGcalStatus(); toast('Disconnected');
+  });
+  setTimeout(renderGcalStatus, 600); setTimeout(renderGcalStatus, 1800);
+
+  if($('#rsyncSync')) $('#rsyncSync').addEventListener('click',function(){
+    if(!rsyncLast || !rsyncLast.events.length){ $('#rsyncErr').textContent='Generate a preview first.'; return; }
+    if(!rsyncLast.month){ $('#rsyncErr').textContent='Roster JSON needs a "month" (e.g. "2026-07") for safe sync.'; return; }
+    if(rsyncLast.unknownCodes.length){ $('#rsyncErr').textContent='Resolve unknown codes before syncing: '+rsyncLast.unknownCodes.join(', '); return; }
+    $('#rsyncErr').textContent='Connecting & reading calendar…';
+    ensureToken({interactive:!gcalConnected()}).then(function(){ renderGcalStatus(); return gcalListMonth(rsyncLast.month); })
+      .then(function(list){
+        var existing=(list&&list.items)||[];
+        var d=RosterSync.diff(existing, rsyncLast.events);
+        gcalDiffLast=d; $('#rsyncErr').textContent='';
+        openDiffModal(d, rsyncLast.month, existing.length);
+      }).catch(function(e){ $('#rsyncErr').textContent='Sync error: '+(e.message||e); });
+  });
+
+  function openDiffModal(d, month, existingN){
+    var ni=d.toInsert.length, np=d.toPatch.length, nd=d.toDelete.length;
+    $('#rsyncDiffProg').textContent=''; $('#rsyncDiffErr').textContent='';
+    $('#rsyncDiffSummary').innerHTML='Month <b>'+month+'</b> · FLT calendar has '+existingN+' roster events.<br>'
+      +'<span style="color:#69f0ae">Add '+ni+'</span> · <span style="color:#ffd54f">Update '+np+'</span> · <span style="color:#ff8a80">Delete '+nd+'</span>';
+    function sec(title,color,arr,fmt){ if(!arr.length) return '';
+      return '<div style="margin-top:8px"><div style="font-size:11px;color:'+color+';font-weight:700">'+title+' ('+arr.length+')</div>'
+        +'<div class="fhint" style="white-space:pre-line">'+esc(arr.map(fmt).join('\n'))+'</div></div>'; }
+    var html=sec('ADD','#69f0ae',d.toInsert,function(e){ return e.summary+'  '+(e.allDay?e.startDate:e.startDateTime.slice(5,16).replace('T',' ')); })
+      +sec('UPDATE','#ffd54f',d.toPatch,function(p){ return (p.ev.summary)+'  '+(p.ev.allDay?p.ev.startDate:p.ev.startDateTime.slice(5,16).replace('T',' ')); })
+      +sec('DELETE','#ff8a80',d.toDelete,function(x){ return x.summary+'  '+String(x.start).slice(5,16).replace('T',' '); });
+    $('#rsyncDiffList').innerHTML=html||'<div class="fhint">Everything already up to date — nothing to sync.</div>';
+    $('#rsyncApply').style.display=(ni+np+nd)?'':'none';
+    openM('m-rsyncdiff');
+  }
+
+  if($('#rsyncApply')) $('#rsyncApply').addEventListener('click',function(){
+    var d=gcalDiffLast; if(!d) return;
+    var btn=this; btn.disabled=true; $('#rsyncDiffErr').textContent='';
+    var tasks=[];
+    d.toInsert.forEach(function(ev){ tasks.push(function(){ return gcalInsert(RosterSync.toGcalBody(ev)); }); });
+    d.toPatch.forEach(function(p){ tasks.push(function(){ return gcalPatch(p.id, RosterSync.toGcalBody(p.ev)); }); });
+    d.toDelete.forEach(function(x){ tasks.push(function(){ return gcalDelete(x.id); }); });
+    if(!tasks.length){ btn.disabled=false; closeM(); return; }
+    gcalRunChunks(tasks,6,function(done,total){ $('#rsyncDiffProg').textContent='Applying… '+done+'/'+total; })
+      .then(function(results){
+        var fail=results.filter(function(r){return !r.ok;});
+        btn.disabled=false;
+        if(fail.length){ $('#rsyncDiffErr').textContent=fail.length+' of '+results.length+' failed — re-run to retry the rest.';
+          toast('Synced with '+fail.length+' error(s)'); }
+        else { toast('Calendar synced ('+results.length+' ops)'); closeM(); }
+      }).catch(function(e){ btn.disabled=false; $('#rsyncDiffErr').textContent='Apply error: '+(e.message||e); });
   });
   if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
     var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
