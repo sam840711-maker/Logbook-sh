@@ -267,6 +267,8 @@
   #dashPlanned .bar .bv{padding-left:8px}
   #dashFunc .bar{grid-template-columns:104px 1fr auto}
   #dashFunc .bar .bv{padding-left:8px}
+  .rsynctab th,.rsynctab td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+  .rsynctab tbody tr:hover{background:rgba(255,255,255,.03)}
   .bar .bt.estack{display:flex}
   .bar .bt.estack .bf{border-radius:0}
   .inclrow{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-dim); margin:0 2px 12px; -webkit-user-select:none; user-select:none}
@@ -440,6 +442,10 @@
       <button class="btn ghost sm" id="rosterBtn" style="width:100%">Import roster (planned flights)</button>
       <button class="btn ghost sm" id="clearPlannedBtn" style="width:100%; margin-top:8px">Clear all planned flights</button>
       <div class="fhint" style="margin-top:10px">Paste the monthly roster JSON to pre-load planned flights (operating legs only; deadhead and off/standby excluded). After each flight, open it and tick “Mark as flown” to record actual times. Planned flights are excluded from totals, currency and PDF until flown.</div>
+
+      <div class="section-head"><h2>Calendar sync <span class="cnt" style="margin-left:auto">preview</span></h2></div>
+      <button class="btn ghost sm" id="rsyncBtn" style="width:100%">Roster &rarr; calendar preview</button>
+      <div class="fhint" style="margin-top:10px">Paste the monthly <b>duty roster JSON</b> (all duties, not just flights) to preview the calendar events it would generate — flights, Show-up, standby, layover, off days and recurrent checks, in KST. Review here first; ICS download is available. Direct Google Calendar sync arrives in a later build.</div>
 
       <div class="section-head"><h2>Data</h2></div>
       <div class="miscbtns">
@@ -666,6 +672,23 @@
   <div class="sheet-foot"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="rosterParse">Add planned</button></div>
 </div></div>
 
+<div class="modal" id="m-rsync"><div class="scrim" data-close></div><div class="sheet" style="max-width:760px">
+  <div class="sheet-head"><h3>Roster &rarr; calendar preview</h3><button class="x" data-close>&times;</button></div>
+  <div class="sheet-body">
+    <p class="fsub" style="margin-top:0">Paste the monthly <b>duty roster JSON</b>. Events are generated in KST. Nothing is written to any calendar — this is a local preview. Unknown duty codes are flagged in red.</p>
+    <div class="fgroup"><label>Duty roster JSON</label><textarea class="fld" id="rsyncJson" style="min-height:150px; font-family:var(--mono); font-size:12px" placeholder='{ "type":"fltroster", "month":"2026-07", "tz":"Asia/Seoul", "duties":[ {"date":"2026-07-03","code":"713","from":"GMP","to":"CJU","su":"0610","std":"0710","sta":"0815","role":"FO"}, {"date":"2026-07-03","code":"OFF"} ] }'></textarea></div>
+    <div class="fhint" id="rsyncErr" style="color:#ff8a80"></div>
+    <div id="rsyncSummary" class="fhint" style="margin-top:6px"></div>
+    <div id="rsyncWarn" style="margin-top:6px"></div>
+    <div id="rsyncTableWrap" style="margin-top:10px; overflow:auto; max-height:46vh"></div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn ghost" data-close>Close</button>
+    <button class="btn ghost" id="rsyncIcs" style="display:none">Download .ics</button>
+    <button class="btn primary" id="rsyncGen">Generate preview</button>
+  </div>
+</div></div>
+
 <div class="modal" id="m-actype"><div class="scrim" data-close></div><div class="sheet">
   <div class="sheet-head"><h3>New aircraft</h3><button class="x" data-close>&times;</button></div>
   <div class="sheet-body">
@@ -728,6 +751,7 @@
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
 <script src="lib/logbook-pdf.js"></script>
+<script src="lib/roster-sync.js"></script>
 <script>
 "use strict";
 (function(){
@@ -1383,6 +1407,56 @@
   });
   // ---- Roster import: bulk planned flights (operating legs only; deadhead excluded upstream) ----
   if($('#rosterBtn')) $('#rosterBtn').addEventListener('click',function(){ $('#rosterErr').textContent=''; openM('m-roster'); });
+
+  // ---- Calendar sync preview (v0.6a): duty roster JSON -> calendar events (no calendar writes) ----
+  var rsyncLast=null;
+  var RSCAT={ off:['OFF','#9aa0a6'], resv:['RESV','#33b679'], eval:['CHECK','#3f51b5'], standby:['SBY','#f09300'],
+    layover:['L/O','#8e24aa'], train:['TRAIN','#039be5'], flight:['FLT','#039be5'], showup:['SHOW','#f6c026'], unknown:['?','#d50000'] };
+  function rsyncCatBadge(cat){ var c=RSCAT[cat]||[cat,'#777']; return '<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;color:#000;background:'+c[1]+'">'+c[0]+'</span>'; }
+  function rsyncWhen(e){ if(e.allDay) return e.startDate+' · all-day';
+    return e.startDateTime.slice(5,16).replace('T',' ')+' → '+e.endDateTime.slice(5,16).replace('T',' '); }
+  if($('#rsyncBtn')) $('#rsyncBtn').addEventListener('click',function(){
+    $('#rsyncErr').textContent=''; $('#rsyncSummary').innerHTML=''; $('#rsyncWarn').innerHTML='';
+    $('#rsyncTableWrap').innerHTML=''; $('#rsyncIcs').style.display='none'; rsyncLast=null; openM('m-rsync');
+  });
+  if($('#rsyncGen')) $('#rsyncGen').addEventListener('click',function(){
+    var raw=$('#rsyncJson').value.trim(); $('#rsyncErr').textContent='';
+    $('#rsyncSummary').innerHTML=''; $('#rsyncWarn').innerHTML=''; $('#rsyncTableWrap').innerHTML=''; $('#rsyncIcs').style.display='none';
+    if(!raw){ $('#rsyncErr').textContent='Paste duty roster JSON first.'; return; }
+    var data; try{ data=JSON.parse(raw); }catch(e){ $('#rsyncErr').textContent='Invalid JSON: '+e.message; return; }
+    if(typeof RosterSync==='undefined'){ $('#rsyncErr').textContent='Rule engine not loaded.'; return; }
+    var res; try{ res=RosterSync.build(data); }catch(e){ $('#rsyncErr').textContent='Engine error: '+e.message; return; }
+    rsyncLast=res;
+    var nU=res.unknownCodes.length;
+    $('#rsyncSummary').innerHTML='Engine '+res.engine+' · month '+(res.month||'—')+' · <b>'+res.events.length+'</b> events'
+      +(nU?(' · <span style="color:#ff8a80">'+nU+' unknown code'+(nU>1?'s':'')+'</span>'):'');
+    if(nU || res.warnings.length){
+      var w=[]; if(nU) w.push('Unknown codes: '+res.unknownCodes.join(', '));
+      res.warnings.forEach(function(x){ w.push(x); });
+      $('#rsyncWarn').innerHTML='<div class="fhint" style="color:#ffb74d; white-space:pre-line">'+esc(w.join('\n'))+'</div>';
+    }
+    var rows=res.events.map(function(e){
+      var bad=e.unknown?' style="background:rgba(213,0,0,.12)"':'';
+      return '<tr'+bad+'><td style="white-space:nowrap;color:var(--dim)">'+e._date+'</td>'
+        +'<td>'+rsyncCatBadge(e.cat)+'</td>'
+        +'<td style="white-space:nowrap;font-family:var(--mono);font-size:11px">'+esc(rsyncWhen(e))+'</td>'
+        +'<td style="white-space:nowrap">c'+e.colorId+'</td>'
+        +'<td>'+esc(e.summary)+'</td></tr>';
+    }).join('');
+    $('#rsyncTableWrap').innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px" class="rsynctab">'
+      +'<thead><tr style="text-align:left;color:var(--dim);font-size:11px">'
+      +'<th>Date</th><th>Type</th><th>When (KST)</th><th>Color</th><th>Summary</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    $('#rsyncIcs').style.display='';
+  });
+  if($('#rsyncIcs')) $('#rsyncIcs').addEventListener('click',function(){
+    if(!rsyncLast || typeof RosterSync==='undefined') return;
+    var ics=RosterSync.toIcs(rsyncLast);
+    var blob=new Blob([ics],{type:'text/calendar'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='fltroster-'+(rsyncLast.month||'export')+'.ics'; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },100);
+    toast('ICS downloaded ('+rsyncLast.events.length+' events)');
+  });
   if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
     var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
     if(!confirm('Delete all '+pl.length+' planned (not-yet-flown) flights? Flown flights are not affected.')) return;

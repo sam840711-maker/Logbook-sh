@@ -2,7 +2,7 @@
 var APP_VERSION = 'dev';
 try { importScripts('version.js'); } catch (e) {}
 const CACHE = 'logbook-' + APP_VERSION;
-const ASSETS = ['./', './index.html', './version.js', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './lib/jspdf.umd.min.js', './lib/logbook-pdf.js', './lib/airports.js', './lib/font-kr.js'];
+const ASSETS = ['./', './index.html', './version.js', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './lib/jspdf.umd.min.js', './lib/logbook-pdf.js', './lib/roster-sync.js', './lib/airports.js', './lib/font-kr.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -21,7 +21,7 @@ function isHTML(req) {
 // Frequently-changing files: always fetch fresh when online (cache only as offline fallback),
 // so an upload applies immediately and the cache can never freeze on an old build.
 function isFresh(url) {
-  return /\/version\.js(\?|$)/.test(url) || /\/lib\/logbook-pdf\.js(\?|$)/.test(url);
+  return /\/version\.js(\?|$)/.test(url) || /\/lib\/logbook-pdf\.js(\?|$)/.test(url) || /\/lib\/roster-sync\.js(\?|$)/.test(url);
 }
 
 self.addEventListener('fetch', (e) => {
