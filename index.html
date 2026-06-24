@@ -250,7 +250,7 @@
   .gt .cell .k{font-size:10px; letter-spacing:.1em; color:var(--ink-faint); text-transform:uppercase}
   .gt .cell .n{font-size:11px; color:var(--ink-dim); margin-top:2px}
   .gt .cell .v{font-family:var(--mono); font-size:18px; margin-top:2px}
-  .gt .cell.ac .v{color:var(--cyan)} .gt .cell.sim .v{color:#b48ee8} .gt .cell.tot .v{color:var(--white)}
+  .gt .cell.ac .v{color:var(--cyan)} .gt .cell.sim .v{color:#b48ee8} .gt .cell.pl .v{color:var(--amber)} .gt .cell.tot .v{color:var(--white)}
   .bars{margin-bottom:2px}
   .bar{display:grid; grid-template-columns:104px 1fr 60px; align-items:center; gap:8px; padding:5px 2px}
   .bar .bl{font-size:12px; color:var(--ink-dim)}
@@ -1147,7 +1147,7 @@
     $('#logEmpty').innerHTML = list.length ? '' : '<div class="empty" style="margin-top:12px"><b>No matches</b>Adjust the filters above.</div>';
     var t=totals(loggedF(list));
     var pln=plannedF(list); var plMin=pln.reduce(function(a,f){return a+(f.total||0);},0);
-    $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n))+(pln.length?grandCell('sim','Planned',pln.length+' flights',fmtHM(plMin)):'');
+    $('#logTotals').innerHTML=grandCell('ac','Total time','',fmtHM(t.total))+grandCell('tot','Flights','',String(t.n))+(pln.length?grandCell('pl','Planned',pln.length+' flights',fmtHM(plMin)):'');
     $('#logCount').textContent = filterActive() ? ('Showing '+list.length+' of '+S.flights.length) : '';
     var lfa=$('#logfActive'); if(lfa) lfa.textContent = filterActive()? '\u00b7 on' : '';
     $('#logList').innerHTML=list.map(cardFlight).join('');
