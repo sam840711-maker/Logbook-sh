@@ -1006,7 +1006,7 @@
     var bm={}; fl.forEach(function(f){var k=f.acType||'(none)'; bm[k]=(bm[k]||0)+(f.total||0);});
     var models=Object.keys(bm).map(function(k){return [k,bm[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var mmax=Math.max.apply(null,models.map(function(m){return m[1];}).concat([1]));
-    $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'violet');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
+    $('#dashModel').innerHTML=models.length?models.map(function(m){return bar(m[0],m[1],mmax,'');}).join(''):'<div class="fhint" style="padding:4px 2px">No aircraft data</div>';
 
     var pdEl=$('#dashPlanned'), pdHd=$('#dashPlannedHd');
     if(pdEl){
@@ -1019,7 +1019,7 @@
       pdEl.innerHTML=mlist.map(function(m){ var a=byM[m.key]||{act:0,pl:0}; var tot=a.act+a.pl;
         var actw=Math.round(a.act/pmx*100), totw=Math.round(tot/pmx*100); if(actw>totw)actw=totw; var plw=totw-actw;
         var segs='<div class="bf cyan" style="width:'+actw+'%"></div><div class="bf amber" style="width:'+plw+'%"></div>';
-        var val=(a.act>0&&a.pl>0)? (fmtHM(tot)+' <span style="color:var(--cyan)">'+fmtHM(a.act)+'</span>+<span style="color:var(--amber)">'+fmtHM(a.pl)+'</span>') : fmtHM(tot);
+        var val=(a.act>0&&a.pl>0)? (fmtHM(tot)+' <span style="color:var(--cyan)">'+fmtHM(a.act)+'</span>+<span style="color:var(--amber)">'+fmtHM(a.pl)+'</span>') : (a.pl>0?'<span style="color:var(--amber)">'+fmtHM(tot)+'</span>':(a.act>0?'<span style="color:var(--cyan)">'+fmtHM(tot)+'</span>':fmtHM(tot)));
         return '<div class="bar"><div class="bl">'+m.lbl+'</div><div class="bt estack">'+segs+'</div><div class="bv">'+val+'</div></div>';
       }).join('')+'<div class="fhint" style="padding:2px 2px 0"><span style="color:var(--cyan)">\u25cf flown</span>  <span style="color:var(--amber)">\u25cf planned</span></div>';
     }
