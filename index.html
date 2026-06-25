@@ -13,6 +13,7 @@
     --line-soft:#1a242c; --ink:#cbd8de; --ink-dim:#7b8c96; --ink-faint:#56666f;
     --cyan:#37c0db; --cyan-dim:#1f6f7e; --amber:#e8a33d; --amber-dim:#7a5a22;
     --green:#46c36a; --red:#e4564a; --white:#eef4f6;
+    --night:#6f8be0; --picus:#e58aa6; --train:#e8743a;
     --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
     --r:12px; --hdr:54px; --nav:64px;
@@ -257,6 +258,7 @@
   .bar .bt{height:8px; background:var(--line-soft); border-radius:99px; overflow:hidden}
   .bar .bf{height:100%; background:var(--cyan); border-radius:99px; transition:width .3s}
   .bar .bf.amber{background:var(--amber)} .bar .bf.violet{background:#b48ee8} .bar .bf.green{background:var(--green)}
+  .bar .bf.night{background:var(--night)} .bar .bf.picus{background:var(--picus)} .bar .bf.train{background:var(--train)}
 .bf.cyan{background:var(--cyan)}
   .bar .bv{font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); white-space:nowrap}
   #dashCurr .bar{grid-template-columns:92px 1fr auto}
@@ -985,13 +987,13 @@
     var fmax=Math.max(t.pic+t.picus,t.sic,t.dual,t.relief,1);
     var ppTot=t.pic+t.picus;
     var picW=Math.round(t.pic/fmax*100), ppW=Math.round(ppTot/fmax*100); if(picW>ppW)picW=ppW; var picusW=ppW-picW;
-    var ppSeg='<div class="bf cyan" style="width:'+picW+'%"></div><div class="bf amber" style="width:'+picusW+'%"></div>';
-    var ppVal=(ppTot>0)?(fmtHM(ppTot)+' <span style="color:var(--cyan)">'+fmtHM(t.pic)+'</span>/<span style="color:var(--amber)">'+fmtHM(t.picus)+'</span>'):fmtHM(ppTot);
+    var ppSeg='<div class="bf cyan" style="width:'+picW+'%"></div><div class="bf picus" style="width:'+picusW+'%"></div>';
+    var ppVal=(ppTot>0)?(fmtHM(ppTot)+' <span style="color:var(--cyan)">'+fmtHM(t.pic)+'</span>/<span style="color:var(--picus)">'+fmtHM(t.picus)+'</span>'):fmtHM(ppTot);
     var ppBar='<div class="bar"><div class="bl">PIC + PICUS</div><div class="bt estack">'+ppSeg+'</div><div class="bv">'+ppVal+'</div></div>';
     $('#dashFunc').innerHTML=ppBar+[['SIC',t.sic,''],['DUAL',t.dual,''],['RELIEF',t.relief,'']].map(function(r){return bar(r[0],r[1],fmax,r[2]);}).join('');
     var dayMin=Math.max(t.total-t.night,0);
     var cmax=Math.max(t.night,dayMin,t.actual,t.xc,t.mp,1);
-    $('#dashCond').innerHTML=[['NIGHT',t.night,'amber'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,''],['MULTI-PILOT',t.mp,'violet']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
+    $('#dashCond').innerHTML=[['NIGHT',t.night,'night'],['DAY',dayMin,''],['ACTUAL INST',t.actual,''],['CROSS CTRY',t.xc,''],['MULTI-PILOT',t.mp,'violet']].map(function(r){return bar(r[0],r[1],cmax,r[2]);}).join('');
     // currencies: Aircraft / Simulator separated; All shows "aircraft / sim"
     var ccA=curCounts(fl), ccS=curCounts(sm);
     $('#dashCurrLbl').textContent='Aircraft / Sim';
@@ -1029,8 +1031,8 @@
     if($('#dashEmp')) $('#dashEmp').innerHTML=emps.length?emps.map(function(m){ var p=phByName[m.name], segs, val;
         if(p && p.clearDate){
           var totw=Math.round((m.t/emax)*100), trw=Math.round((p.training/emax)*100); if(trw>totw)trw=totw; var lnw=totw-trw;
-          segs='<div class="bf amber" style="width:'+trw+'%"></div><div class="bf green" style="width:'+lnw+'%"></div>';
-          val=fmtHM(m.t)+' <span style="color:var(--amber)">'+fmtHM(p.training)+'</span>/<span style="color:var(--green)">'+fmtHM(p.line)+'</span>';
+          segs='<div class="bf train" style="width:'+trw+'%"></div><div class="bf green" style="width:'+lnw+'%"></div>';
+          val=fmtHM(m.t)+' <span style="color:var(--train)">'+fmtHM(p.training)+'</span>/<span style="color:var(--green)">'+fmtHM(p.line)+'</span>';
         } else {
           segs='<div class="bf cyan" style="width:'+Math.round((m.t/emax)*100)+'%"></div>';
           val=fmtHM(m.t);
