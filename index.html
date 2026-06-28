@@ -143,7 +143,7 @@
   .stp .stpb{flex:0 0 46px; border:1px solid var(--line-soft); border-radius:10px; background:var(--panel-2); color:var(--ink); font-size:22px; line-height:1; padding:0}
   .stp .stpb:active{background:#1c2a33}
   .stp .stpi{flex:1; text-align:center}
-  .sigpad{display:block; width:100%; height:96px; background:#fff; border:1px solid var(--line-soft); border-radius:10px; touch-action:none}
+  .sigpad{display:block; width:100%; height:160px; background:#fff; border:1px solid var(--line-soft); border-radius:10px; touch-action:none}
   .sigpad.locked{pointer-events:none; opacity:.92}
   .sigpad.editing{border-color:#5fd0e6; box-shadow:0 0 0 2px rgba(95,208,230,.25)}
 
@@ -427,7 +427,7 @@
       <div class="section-head"><h2>PDF logbook export</h2></div>
       <div class="fgroup" style="margin-bottom:8px"><label>Pilot name</label><input class="fld" id="p_name" placeholder="SH LEE"></div>
       <div class="fgroup" style="margin-bottom:8px"><label>Signature (sign below — printed on every PDF page)</label>
-        <canvas id="p_sig" class="sigpad locked" width="360" height="96"></canvas>
+        <canvas id="p_sig" class="sigpad locked" width="600" height="160"></canvas>
         <div style="display:flex; gap:8px; align-items:center; margin-top:6px"><button class="btn ghost sm" id="p_sigEdit" type="button">Edit signature</button><button class="btn ghost sm" id="p_sigClear" type="button" disabled>Clear</button><span class="fhint" id="p_sigSaved"></span></div>
       </div>
       <button class="btn primary" id="saveSettings" style="width:100%; margin:4px 0 6px">Save settings</button>
@@ -2190,7 +2190,7 @@
     var cv=$('#p_sig'); if(!cv) return; var ctx=null; try{ ctx=cv.getContext('2d'); }catch(e){}
     function base(){ if(!ctx) return; ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1320'; }
     base();
-    var pr=loadProfile(); if(pr.sig && ctx){ try{ var im=new Image(); im.onload=function(){ try{ ctx.drawImage(im,0,0,cv.width,cv.height); }catch(e){} }; im.src=pr.sig; $('#p_sigSaved').textContent='Saved signature loaded'; }catch(e){} }
+    var pr=loadProfile(); if(pr.sig && ctx){ try{ var im=new Image(); im.onload=function(){ try{ var s=Math.min(cv.width/im.width, cv.height/im.height); var dw=im.width*s, dh=im.height*s; ctx.drawImage(im,(cv.width-dw)/2,(cv.height-dh)/2,dw,dh); }catch(e){} }; im.src=pr.sig; $('#p_sigSaved').textContent='Saved signature loaded'; }catch(e){} }
     var drawing=false, last=null, dirty=false, locked=true;
     function pos(e){ var r=cv.getBoundingClientRect(); var t=(e.touches&&e.touches[0])?e.touches[0]:e; return {x:(t.clientX-r.left)*(cv.width/r.width), y:(t.clientY-r.top)*(cv.height/r.height)}; }
     function start(e){ if(locked||!ctx) return; e.preventDefault(); drawing=true; last=pos(e); }
