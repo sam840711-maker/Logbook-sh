@@ -800,8 +800,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.6t"></script>
-<script src="lib/roster-sync.js?v=0.6t"></script>
+<script src="lib/logbook-pdf.js?v=0.6u"></script>
+<script src="lib/roster-sync.js?v=0.6u"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -1399,7 +1399,7 @@
     var blk=pick(leg,['block','bt','total']), night=pick(leg,['night']);
     var inst=pick(leg,['actual','inst','instrument','instTime']);
     var rem=pick(leg,['rem','remark','remarks']) || shared.rem || (shared.picName?('C.'+shared.picName):'');
-    var f={ date:shared.date||'', reg:(shared.reg||'').toUpperCase(), picName:shared.picName||'',
+    var f={ date:pick(leg,['date'])||shared.date||'', reg:(shared.reg||'').toUpperCase(), picName:shared.picName||'',
       fno:tw2twb(pick(leg,['fno','flightNo','flight'])), dep:(pick(leg,['dep','from'])||'').toUpperCase(), arr:(pick(leg,['arr','to'])||'').toUpperCase(),
       off:off!=null?parseClock(off):null, on:on!=null?parseClock(on):null,
       total:blk!=null?parseDur(blk):0, night:night!=null?parseDur(night):0, actual:inst!=null?parseDur(inst):0, rem:rem };
