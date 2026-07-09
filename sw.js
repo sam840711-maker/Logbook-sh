@@ -1,5 +1,5 @@
 /* SH Pilot Logbook service worker */
-var APP_VERSION = 'v0.6u';
+var APP_VERSION = 'v0.6v';
 try { importScripts('version.js'); } catch (e) {}
 const CACHE = 'logbook-' + APP_VERSION;
 const ASSETS = ['./', './index.html', './version.js', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './lib/jspdf.umd.min.js', './lib/logbook-pdf.js', './lib/roster-sync.js', './lib/airports.js', './lib/font-kr.js'];

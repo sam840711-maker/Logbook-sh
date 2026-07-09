@@ -800,8 +800,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.6u"></script>
-<script src="lib/roster-sync.js?v=0.6u"></script>
+<script src="lib/logbook-pdf.js?v=0.6v"></script>
+<script src="lib/roster-sync.js?v=0.6v"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -1610,6 +1610,22 @@
       try{ localStorage.setItem('gdrive_lasterr', JSON.stringify({t:new Date().toISOString(), m:String((e&&e.message)||e).slice(0,140)})); }catch(_){}
       renderBackupStatus();
     }); }
+  // Boot reconnect: session tokens die when the app is closed, so on a fresh open
+  // gcalConnected() is false and auto-backup would never run. If auto is on, the user is
+  // linked, we're online, AND a backup is actually due (>24h), silently refresh the token
+  // (prompt:'' → no popup when consent is still valid) and back up. Gating on "due" means
+  // we never touch auth on frequent opens, so no sign-in flicker.
+  function gcalBootReconnect(tries){ tries=(tries==null)?8:tries;
+    var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
+    if(!on || !gcalLinked() || navigator.onLine===false) return;
+    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
+    if(Date.now()-last < 24*3600*1000) return;              // not due → leave auth untouched
+    if(gcalConnected()){ maybeAutoBackup(); return; }        // token still alive
+    if(typeof google==='undefined' || !(google.accounts && google.accounts.oauth2)){
+      if(tries>0) setTimeout(function(){ gcalBootReconnect(tries-1); }, 600); return; }
+    ensureToken({interactive:false}).then(function(){ renderGcalStatus(); maybeAutoBackup(); })
+      .catch(function(){ /* needs interaction — stay silent; staleness warning surfaces after 3d */ });
+  }
   setTimeout(renderGcalStatus, 700); setTimeout(renderGcalStatus, 1800);
   setTimeout(function(){ try{ renderBackupStatus(); backupHealthWarn(); }catch(e){} }, 2200);
   window.addEventListener('online', renderGcalStatus);
@@ -1768,9 +1784,9 @@
     $('#gdriveAuto').addEventListener('change',function(){ try{ localStorage.setItem('gdrive_auto', this.checked?'1':'0'); }catch(e){} if(this.checked) toast('Auto-backup on'); });
   }
   renderBackupStatus();
-  // best-effort daily auto-backup: runs only if a live token already exists this session, so it
-  // never opens a sign-in window. Otherwise it runs opportunistically after Connect / Sync.
-  setTimeout(function(){ maybeAutoBackup(); }, 3500);
+  // daily auto-backup: silently refreshes an expired token on open when a backup is due,
+  // so it runs even in a fresh session (previously it silently no-op'd without a live token).
+  setTimeout(function(){ gcalBootReconnect(); }, 2800);
   if($('#clearPlannedBtn')) $('#clearPlannedBtn').addEventListener('click',function(){
     var pl=plannedF(S.flights); if(!pl.length){ toast('No planned flights'); return; }
     if(!confirm('Delete all '+pl.length+' planned (not-yet-flown) flights? Flown flights are not affected.')) return;
