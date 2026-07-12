@@ -463,8 +463,8 @@
         <button class="btn ghost sm" id="gdriveBackup">Back up now</button>
         <button class="btn ghost sm" id="gdriveRestore">Restore from cloud</button>
       </div>
-      <label class="fhint" style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer"><input type="checkbox" id="gdriveAuto"> Auto-backup once a day when connected</label>
-      <div class="fhint" style="margin-top:6px">Stored in your private Google Drive app folder (hidden, only this app can read it). Keeps the latest 30. Uses the same Google connection as calendar sync. Warns you here (and on open) if a backup fails or none has succeeded in 3 days.</div>
+      <label class="fhint" style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer"><input type="checkbox" id="gdriveAuto"> Auto-backup twice a day (09:00 &amp; 21:00) when connected</label>
+      <div class="fhint" style="margin-top:6px">Stored in your private Google Drive app folder (hidden, only this app can read it). Keeps the latest 30. Uses the same Google connection as calendar sync. Backs up on the first open after 09:00 and after 21:00. Warns you here (and on open) if a backup fails or none has succeeded in 3 days.</div>
 
       <p class="eyebrow" style="margin:14px 0 4px">This device (file)</p>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
@@ -800,8 +800,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.6v"></script>
-<script src="lib/roster-sync.js?v=0.6v"></script>
+<script src="lib/logbook-pdf.js?v=0.6w"></script>
+<script src="lib/roster-sync.js?v=0.6w"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -1602,10 +1602,26 @@
   // makes the Google sign-in popup flash open then closed; instead the token is fetched lazily the
   // first time an action (sync / backup) actually needs it.
   function getTokenSmart(){ return ensureToken({interactive:false}).catch(function(){ return ensureToken({interactive:true}); }); }
+  // Twice-daily backup slots: 09:00 and 21:00 local. A backup is due if the last one happened
+  // before the start of the slot we're currently in, so opening the app after 09:00 backs up once,
+  // and opening it again after 21:00 backs up once more. Before 09:00 the active slot is the
+  // previous day's 21:00 one.
+  function slotStart(now){ now=now||new Date();
+    var d=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var h=now.getHours();
+    if(h>=21) d.setHours(21);
+    else if(h>=9) d.setHours(9);
+    else { d.setDate(d.getDate()-1); d.setHours(21); }   // before 09:00 → last night's slot
+    return d.getTime();
+  }
+  function backupDue(){
+    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
+    if(!last) return true;
+    return last < slotStart();
+  }
   function maybeAutoBackup(){ var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
     if(!on || !gcalConnected()) return;            // only when a live token already exists → never opens a window
-    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
-    if(Date.now()-last < 24*3600*1000) return;
+    if(!backupDue()) return;
     if(typeof dvBackupNow==='function') dvBackupNow('auto-daily').catch(function(e){
       try{ localStorage.setItem('gdrive_lasterr', JSON.stringify({t:new Date().toISOString(), m:String((e&&e.message)||e).slice(0,140)})); }catch(_){}
       renderBackupStatus();
@@ -1618,8 +1634,7 @@
   function gcalBootReconnect(tries){ tries=(tries==null)?8:tries;
     var on; try{ on=localStorage.getItem('gdrive_auto')==='1'; }catch(e){ on=false; }
     if(!on || !gcalLinked() || navigator.onLine===false) return;
-    var last; try{ last=+new Date(localStorage.getItem('gdrive_last')||0); }catch(e){ last=0; }
-    if(Date.now()-last < 24*3600*1000) return;              // not due → leave auth untouched
+    if(!backupDue()) return;                                // not due → leave auth untouched
     if(gcalConnected()){ maybeAutoBackup(); return; }        // token still alive
     if(typeof google==='undefined' || !(google.accounts && google.accounts.oauth2)){
       if(tries>0) setTimeout(function(){ gcalBootReconnect(tries-1); }, 600); return; }
