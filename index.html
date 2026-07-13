@@ -800,8 +800,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.6w"></script>
-<script src="lib/roster-sync.js?v=0.6w"></script>
+<script src="lib/logbook-pdf.js?v=0.6x"></script>
+<script src="lib/roster-sync.js?v=0.6x"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -1428,6 +1428,22 @@
     // PICUS only when I demonstrably did BOTH takeoff and landing; otherwise default to SIC=block (FO).
     if(flew){ f.picus=f.total||0; f.sic=0; }
     else { f.sic=f.total||0; f.picus=0; }
+    // Autoland + approach. Accepts a count (autoland:1), a flag (autoland:true), or the paper-log
+    // AUTOLAND box as an object/string, e.g. {rwy:'25',su:'S'} or "25 S". Logged for any leg I was
+    // on, regardless of who flew the landing — this tracks autoland currency, not personal landings.
+    var al=pick(leg,['autoland','autoLand','al','auto']);
+    var alCount=0, alRwy='', alSu='';
+    if(al!=null && al!==false && al!==''){
+      if(typeof al==='object'){ alCount=1; alRwy=String(al.rwy||al.runway||''); alSu=String(al.su||al.mode||''); }
+      else if(al===true){ alCount=1; }
+      else if(!isNaN(+al)){ alCount=+al; }
+      else { alCount=1; var m=String(al).trim().split(/\s+/); alRwy=m[0]||''; alSu=m[1]||''; }
+    }
+    f.auto=alCount;
+    var apr=pick(leg,['appr','approach','approaches']);
+    if(apr!=null && String(apr).trim()){ f.appr=String(apr).trim(); }
+    else if(alRwy||alSu){ f.appr=('AUTOLAND'+(alRwy?' RWY'+alRwy:'')+(alSu?' '+alSu:'')).trim(); }
+    else f.appr='';
     return f;
   }
   function openReview(){
