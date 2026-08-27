@@ -800,8 +800,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.6z"></script>
-<script src="lib/roster-sync.js?v=0.6z"></script>
+<script src="lib/logbook-pdf.js?v=0.7a"></script>
+<script src="lib/roster-sync.js?v=0.7a"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -2195,7 +2195,7 @@
     var rows=S.flights.slice().reverse().map(function(f){ return [f.date,f.fno,f.reg,f.acType,f.dep,f.arr,
       f.off!=null?clk(f.off):'',f.on!=null?clk(f.on):'',fmtHM(f.total),fmtHM(f.mp),fmtHM(f.pic),fmtHM(f.sic),fmtHM(f.picus),fmtHM(f.relief),fmtHM(f.night),fmtHM(f.ifr),fmtHM(f.dual),fmtHM(f.instr),
       f.dTo||0,f.dLdg||0,f.nTo||0,f.nLdg||0,f.auto||0,f.appr||'',f.acMulti?'Y':'',f.xc?'Y':'',f.rule||'',(f.status==='planned'?'PLANNED':'actual'),f.picName||'',f.rem||''].map(csv).join(','); });
-    download('logbook_'+today()+'.csv', head.join(',')+'\n'+rows.join('\n'), 'text/csv'); toast('CSV exported');
+    download('logbook_'+today()+'.csv', '\uFEFF'+head.join(',')+'\n'+rows.join('\n'), 'text/csv;charset=utf-8'); toast('CSV exported');
   });
   function csv(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
   $('#wipe').addEventListener('click',function(){ if(!confirm('Permanently delete all data. Have you backed up?')) return;
