@@ -432,11 +432,39 @@
       </div>
       <button class="btn primary" id="saveSettings" style="width:100%; margin:4px 0 6px">Save settings</button>
       <div class="fhint" id="settingsSaved" style="margin-bottom:6px"></div>
+      <div class="fgroup" style="margin:6px 0 8px"><label>Export period</label>
+        <select class="fld" id="pdfPeriod">
+          <option value="all">All time</option>
+          <option value="cmonth">Current month</option>
+          <option value="lmonth">Last month</option>
+          <option value="l3m">Last 3 months</option>
+          <option value="cyear">Current year</option>
+          <option value="lyear">Last year</option>
+          <option value="range">Specific range...</option>
+        </select>
+      </div>
+      <div class="frow c2" id="pdfRangeRow" style="display:none; margin-bottom:8px">
+        <div class="fgroup"><label>From</label><input type="date" class="fld" id="pdfFrom"></div>
+        <div class="fgroup"><label>To</label><input type="date" class="fld" id="pdfTo"></div>
+      </div>
+      <div class="frow c2" style="margin-bottom:8px">
+        <div class="fgroup"><label>Pages to print</label>
+          <select class="fld" id="pdfLast">
+            <option value="0">All pages</option>
+            <option value="1">Last 1 page</option>
+            <option value="2">Last 2 pages</option>
+            <option value="3">Last 3 pages</option>
+            <option value="5">Last 5 pages</option>
+          </select></div>
+        <div class="fgroup"><label>Summary / signature page</label>
+          <select class="fld" id="pdfSum"><option value="1">Include</option><option value="0">Exclude</option></select></div>
+      </div>
+      <div class="fhint" id="pdfRangeLbl" style="margin:0 2px 10px"></div>
       <div class="miscbtns4">
         <button class="btn ghost sm" data-pdf="EASA">EASA</button>
         <button class="btn ghost sm" data-pdf="GCAA">GCAA</button>
       </div>
-      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. <b>EASA</b> is the ICAO-standard European layout; <b>GCAA</b> (UAE) keeps the FLIGHT/PICUS columns, adds an FSTD-session block and a licence-total reconciliation note.</div>
+      <div class="fhint" style="margin-top:8px">Exported in English for international submission. Includes the flight ledger plus by-type and simulator summaries and a certification block. <b>EASA</b> is the ICAO-standard European layout; <b>GCAA</b> (UAE) keeps the FLIGHT/PICUS columns, adds an FSTD-session block and a licence-total reconciliation note. <b>Pages to print</b> keeps only the last N logbook pages (page numbers and TOTAL PREVIOUS PAGES stay true to the full logbook; one page = a left/right spread for EASA/GCAA) — handy for submitting just the latest sheets. <b>Export period</b> lists only that period's flights (UTC date); earlier flights are carried into TOTAL PREVIOUS PAGES / TOTAL TIME, and the summary page shows PERIOD and ALL-TIME totals side by side.</div>
 
       <div class="section-head"><h2>Roster import</h2></div>
       <button class="btn ghost sm" id="rosterBtn" style="width:100%">Import roster (planned flights)</button>
@@ -800,8 +828,8 @@
 <script src="lib/airports.js"></script>
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="lib/font-kr.js"></script>
-<script src="lib/logbook-pdf.js?v=0.7b"></script>
-<script src="lib/roster-sync.js?v=0.7b"></script>
+<script src="lib/logbook-pdf.js?v=0.7d"></script>
+<script src="lib/roster-sync.js?v=0.7d"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 "use strict";
@@ -928,17 +956,19 @@
   function pad2(n){ return (n<10?'0':'')+n; }
   function dstr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function monthRange(y,m){ return {from:dstr(new Date(y,m,1)), to:dstr(new Date(y,m+1,0))}; }
-  function periodRange(){
+  function rangeFor(period, rFrom, rTo){
     var now=new Date(), y=now.getFullYear(), m=now.getMonth();
-    switch(dashPeriod){
+    switch(period){
       case 'cmonth': return monthRange(y,m);
       case 'lmonth': return monthRange(m===0?y-1:y, m===0?11:m-1);
+      case 'l3m': return {from:dstr(new Date(y,m-2,1)), to:dstr(new Date(y,m+1,0))};
       case 'cyear': return {from:y+'-01-01', to:y+'-12-31'};
       case 'lyear': return {from:(y-1)+'-01-01', to:(y-1)+'-12-31'};
-      case 'range': return {from:dashFrom||null, to:dashTo||null};
+      case 'range': return {from:rFrom||null, to:rTo||null};
       default: return {from:null, to:null};
     }
   }
+  function periodRange(){ return rangeFor(dashPeriod, dashFrom, dashTo); }
   function fillDashEmp(){
     var sel=$('#dashEmpFilter'); if(!sel) return;
     var names=(S.employers||[]).map(function(e){return e.name||'';}).filter(Boolean).sort(function(a,b){return a.localeCompare(b);});
@@ -2280,11 +2310,32 @@
   })();
   (function initPdf(){
     var p=loadProfile(); if($('#p_name')) $('#p_name').value=p.name||''; if($('#p_lic')) $('#p_lic').value=p.lic||''; if($('#p_emp')) $('#p_emp').value=p.empNo||'';
+    /* export period (UTC logbook date) — same presets as the dashboard filter */
+    function pdfRange(){ return rangeFor(($('#pdfPeriod')&&$('#pdfPeriod').value)||'all', ($('#pdfFrom')&&$('#pdfFrom').value)||'', ($('#pdfTo')&&$('#pdfTo').value)||''); }
+    function pdfSplit(){
+      var r=pdfRange(), hasR=!!(r.from||r.to);
+      var inR=function(d){ if(!d) return false; if(r.from && d<r.from) return false; if(r.to && d>r.to) return false; return true; };
+      var all=loggedF(S.flights);
+      return { r:r, hasR:hasR, all:all, fl:hasR?all.filter(function(f){return inR(f.date);}):all, sm:hasR?(S.sim||[]).filter(function(x){return inR(x.date);}):(S.sim||[]) };
+    }
+    function updatePdfRangeInfo(){
+      var el=$('#pdfRangeLbl'); if(!el) return;
+      var x=pdfSplit();
+      if(!x.hasR){ el.textContent='All time · '+x.all.length+' flights · '+fmtHM(totals(x.all).total)+' block'; return; }
+      var before=x.r.from?x.all.filter(function(f){return f.date&&f.date<x.r.from;}).length:0;
+      el.textContent=(x.r.from||'start')+' → '+(x.r.to||'latest')+' · '+x.fl.length+' flights · '+fmtHM(totals(x.fl).total)+' block'+(before?' · '+before+' earlier flights carried into cumulative totals':'');
+    }
+    if($('#pdfPeriod')) $('#pdfPeriod').addEventListener('change',function(){ $('#pdfRangeRow').style.display=(this.value==='range')?'':'none'; updatePdfRangeInfo(); });
+    if($('#pdfFrom')) $('#pdfFrom').addEventListener('change',updatePdfRangeInfo);
+    if($('#pdfTo')) $('#pdfTo').addEventListener('change',updatePdfRangeInfo);
+    updatePdfRangeInfo(); window.updatePdfRangeInfo=updatePdfRangeInfo;
     $$('[data-pdf]').forEach(function(b){ b.addEventListener('click',function(){
       if(!window.LogbookPDF || !window.jspdf){ toast('PDF module failed to load'); return; }
       var fmt=b.getAttribute('data-pdf');
-      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:loggedF(S.flights),sim:S.sim,profile:curProfile(),format:fmt,version:(typeof APP_VERSION!=='undefined'?APP_VERSION:'')});
-        doc.save('logbook_'+fmt+'_'+today()+'.pdf'); toast(fmt+' PDF created'); }
+      var x=pdfSplit();
+      if(x.hasR && !x.fl.length && !x.sm.length){ toast('No flights in the selected period'); return; }
+      try{ var doc=window.LogbookPDF.build(window.jspdf.jsPDF,{flights:x.fl,sim:x.sm,allFlights:x.all,allSim:(S.sim||[]),range:x.hasR?{from:x.r.from||'',to:x.r.to||''}:null,profile:curProfile(),format:fmt,lastPages:parseInt(($('#pdfLast')&&$('#pdfLast').value)||'0',10),includeSummary:(($('#pdfSum')&&$('#pdfSum').value)!=='0'),version:(typeof APP_VERSION!=='undefined'?APP_VERSION:'')});
+        doc.save('logbook_'+fmt+(x.hasR?'_'+(x.r.from||'start')+'_'+(x.r.to||'latest'):'')+'_'+today()+'.pdf'); toast(fmt+' PDF created'+(x.hasR?' ('+x.fl.length+' flights)':'')); }
       catch(e){ console.error(e); toast('PDF creation failed'); }
     }); });
   })();

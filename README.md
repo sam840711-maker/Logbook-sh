@@ -37,3 +37,9 @@ lib/airports.js         공항 ICAO/IATA/타임존 DB (IATA 보유 7,914개)
 - PDF는 영문 전용입니다(한글 비고는 표시되지 않을 수 있음 — 의도된 동작).
 - GCAA 제출용 정식 양식은 EASA식 원장 + 면장 대조 주석으로 구성했습니다. 공식 제출 전 최신 GCAA 서식을 한 번 확인하세요.
 - 데이터는 기기에만 저장되므로 정기적으로 JSON 백업을 권장합니다.
+
+## v0.7c
+- PDF export: selectable period (this/last month, last 3 months, this/last year, custom range). Lists only flights in the period; TOTAL PREVIOUS PAGES / TOTAL TIME carry earlier flights forward; summary page shows PERIOD vs ALL-TIME.
+
+## v0.7d
+- PDF export: "Pages to print" (last 1/2/3/5 logbook pages) + optional summary/signature page. Page numbers and carried-forward totals stay true to the full logbook.
